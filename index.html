@@ -653,6 +653,7 @@
       <div class="tabs-mini" style="margin-bottom:18px">
         <button class="tab-mini active" id="tab-com-importar" onclick="switchComTab('importar')">📥 Importar</button>
         <button class="tab-mini" id="tab-com-relatorio" onclick="switchComTab('relatorio')">📋 Relatório semanal</button>
+        <button class="tab-mini" id="tab-com-pendentes" onclick="switchComTab('pendentes')">💰 A receber</button>
       </div>
 
       <!-- Painel: Importar -->
@@ -664,6 +665,16 @@
           <span id="comissoes-status" style="font-size:12px;color:var(--txt3)"></span>
         </div>
         <div id="comissoes-preview"></div>
+      </div>
+
+      <!-- Painel: Comissões a receber (Pago ✓, sem recebimento) -->
+      <div id="panel-com-pendentes" style="display:none">
+        <div class="notice">Comissões pagas pela empresa mas ainda <strong>não coletadas</strong> por você — <strong>Pago ✓</strong>, sem data de recebimento.</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="carregarComissoesPendentes()">🔄 Carregar dados</button>
+          <span id="pendentes-status" style="font-size:12px;color:var(--txt3)"></span>
+        </div>
+        <div id="pendentes-output"></div>
       </div>
 
       <!-- Painel: Relatório semanal -->
@@ -1600,8 +1611,10 @@ function confirmarImportacaoComissoes() {
 function switchComTab(t) {
   document.getElementById('panel-com-importar').style.display  = t === 'importar'  ? 'block' : 'none';
   document.getElementById('panel-com-relatorio').style.display = t === 'relatorio' ? 'block' : 'none';
+  document.getElementById('panel-com-pendentes').style.display = t === 'pendentes' ? 'block' : 'none';
   document.getElementById('tab-com-importar').className  = 'tab-mini' + (t === 'importar'  ? ' active' : '');
   document.getElementById('tab-com-relatorio').className = 'tab-mini' + (t === 'relatorio' ? ' active' : '');
+  document.getElementById('tab-com-pendentes').className = 'tab-mini' + (t === 'pendentes' ? ' active' : '');
 }
 
 function getISOWeek(dateStr) {
@@ -1757,6 +1770,106 @@ function copiarTodasComissoes() {
       document.execCommand('copy'); document.body.removeChild(ta);
     });
 }
+// ===== RELATÓRIO COMISSÕES A RECEBER =====
+let _pendentesData = [];
+
+async function carregarComissoesPendentes() {
+  const statusEl = document.getElementById('pendentes-status');
+  const outEl    = document.getElementById('pendentes-output');
+  statusEl.textContent = 'Carregando...';
+  outEl.innerHTML = '';
+  try {
+    const resp = await fetch(COMISSOES_WEBHOOK_DEFAULT + '?tipo=pendentes');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    if (!json.success) throw new Error(json.error || 'Erro no script');
+    _pendentesData = json.comissoes || [];
+
+    if (!_pendentesData.length) {
+      statusEl.textContent = 'Nenhuma comissão pendente.';
+      outEl.innerHTML = '<div class="notice" style="background:var(--green-bg);color:var(--green)">🎉 Nenhuma comissão pendente encontrada — tudo em dia!</div>';
+      return;
+    }
+
+    const totalPendente = _pendentesData.reduce((s, c) => s + (c.comissao || 0), 0);
+    statusEl.textContent = `${_pendentesData.length} pendente(s) · Total: ${fmtBRL(totalPendente)}`;
+
+    outEl.innerHTML =
+      `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+         <div style="font-size:13px;color:var(--txt2)">Total a receber: <strong style="color:var(--amber);font-size:16px">${fmtBRL(totalPendente)}</strong></div>
+         <button class="btn btn-sm" onclick="copiarTodasPendentes()">📋 Copiar todas</button>
+       </div>` +
+      _pendentesData.map((item, idx) => renderCardPendente(item, idx)).join('');
+    _pendentesData.forEach((_, idx) => atualizarTextoPendente(idx));
+  } catch(e) {
+    statusEl.textContent = 'Erro: ' + e.message;
+    outEl.innerHTML = `<div style="background:var(--red-bg);color:var(--red);border-radius:var(--radius);padding:12px 16px;font-size:13px">⚠️ ${e.message}</div>`;
+  }
+}
+
+function renderCardPendente(item, idx) {
+  return `<div class="card" style="border-left:4px solid var(--amber);margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div>
+        <strong style="font-size:15px">${item.nome}</strong>
+        <div style="font-size:11px;color:var(--txt3);margin-top:2px">Fechamento: ${fmtDate(item.data_fechamento) || '—'} · Comissão: <span style="color:var(--amber)">${fmtBRL(item.comissao||0)}</span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="pend-tipo-${idx}" onchange="atualizarTextoPendente(${idx})"
+          style="font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt)">
+          <option value="">Tipo da venda...</option>
+          <option value="MVP">MVP</option>
+          <option value="TCV">TCV</option>
+          <option value="MRR">MRR</option>
+        </select>
+        <input type="text" id="pend-obs-${idx}" placeholder="Observação..."
+          value="${(item.obs||'').replace(/"/g,'&quot;')}"
+          oninput="atualizarTextoPendente(${idx})"
+          style="font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt);width:160px">
+        <button class="btn btn-sm btn-primary" id="pend-btn-${idx}" onclick="copiarTextoPendente(${idx})">📋 Copiar</button>
+      </div>
+    </div>
+    <textarea id="pend-texto-${idx}" readonly
+      style="width:100%;font-size:13px;line-height:2;border:1px solid var(--border2);border-radius:var(--radius);padding:12px 14px;background:var(--surface2);color:var(--txt);resize:none;height:178px;font-family:inherit"></textarea>
+  </div>`;
+}
+
+function atualizarTextoPendente(idx) {
+  const item = _pendentesData[idx];
+  if (!item) return;
+  const tipo = document.getElementById(`pend-tipo-${idx}`)?.value || '';
+  const obs  = document.getElementById(`pend-obs-${idx}`)?.value || '';
+  const ta   = document.getElementById(`pend-texto-${idx}`);
+  if (ta) ta.value = gerarTextoComissao(item, tipo, obs);
+}
+
+function copiarTextoPendente(idx) {
+  const ta  = document.getElementById(`pend-texto-${idx}`);
+  const btn = document.getElementById(`pend-btn-${idx}`);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value)
+    .then(() => { if(btn){btn.textContent='✅ Copiado!';setTimeout(()=>btn.textContent='📋 Copiar',2000);} })
+    .catch(() => { ta.select(); document.execCommand('copy'); });
+}
+
+function copiarTodasPendentes() {
+  const textos = _pendentesData.map((item, idx) => {
+    const tipo = document.getElementById(`pend-tipo-${idx}`)?.value || '';
+    const obs  = document.getElementById(`pend-obs-${idx}`)?.value || '';
+    return gerarTextoComissao(item, tipo, obs);
+  });
+  const texto = textos.join('\n\n' + '─'.repeat(40) + '\n\n');
+  const btn = document.querySelector('[onclick="copiarTodasPendentes()"]');
+  navigator.clipboard.writeText(texto)
+    .then(() => { if(btn){btn.textContent='✅ Copiado!';setTimeout(()=>btn.textContent='📋 Copiar todas',2000);} })
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = texto; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    });
+}
+// ===== FIM RELATÓRIO A RECEBER =====
+
 // ===== FIM RELATÓRIO SEMANAL =====
 
 // ===== FIM IMPORTAÇÃO DE COMISSÕES =====

@@ -1,6 +1,8 @@
 /**
- * Apps Script - Exportar Comissões Recebidas (v2)
- * Retorna: nome, valor cheio, percentual, comissao, data_fechamento, data_recebido, obs
+ * Apps Script - Exportar Comissões (v3)
+ * Suporta dois modos via ?tipo=:
+ *   recebidas (default) — Pago ✓ (todas onde o cliente pagou)
+ *   pendentes           — Pago ✓ + Recebido vazio + Data recebimento vazia
  *
  * PARA ATUALIZAR a implantação existente (URL continua a mesma):
  * 1. Cole este código no Apps Script
@@ -14,6 +16,8 @@ const SHEET_GID = 1556243639;
 
 function doGet(e) {
   try {
+    const tipo = (e && e.parameter && e.parameter.tipo) ? e.parameter.tipo : 'recebidas';
+
     const ss    = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheets().find(s => s.getSheetId() === SHEET_GID);
     if (!sheet) return jsonResponse({ success: false, error: 'Aba não encontrada. Verifique o SHEET_GID.' });
@@ -38,31 +42,46 @@ function doGet(e) {
     const colComissao     = headers.findIndex(h => h === 'comissão' || h === 'comissao');
     const colDataFech     = headers.findIndex(h => h.includes('fechamento') || (h.includes('data') && h.includes('resposta')));
     const colPago         = headers.findIndex(h => h === 'pago');
+    const colRecebido     = headers.findIndex(h => h.includes('recebido') && !h.includes('data'));
     const colDataRecebido = headers.findIndex(h => h.includes('data') && h.includes('recebido'));
     const colObs          = headers.findIndex(h => h === 'obs' || h.includes('observa'));
 
-    const comissoes = [];
+    const resultado = [];
 
     for (let i = headerRow + 1; i < data.length; i++) {
       const row  = data[i];
       const nome = String(row[colNome] || '').trim();
       if (!nome) continue;
 
-      // Só inclui se checkbox "Pago" estiver marcada
+      // Só processa se Pago ✓
       const pago = row[colPago] === true || String(row[colPago]).toUpperCase() === 'TRUE';
       if (!pago) continue;
+
+      const dataRecebidoRaw = colDataRecebido >= 0 ? row[colDataRecebido] : null;
+      const dataRecebidoStr = String(dataRecebidoRaw || '').trim();
+      const dataRecebidoVazia = !dataRecebidoRaw || dataRecebidoStr === '' || dataRecebidoStr === '-';
+
+      const recebidoRaw = colRecebido >= 0 ? row[colRecebido] : null;
+      const recebido    = recebidoRaw === true || String(recebidoRaw || '').toUpperCase() === 'TRUE';
+
+      if (tipo === 'pendentes') {
+        // Pago ✓, Recebido vazio/false e sem data de recebimento
+        if (recebido) continue;
+        if (!dataRecebidoVazia) continue;
+      }
+      // tipo === 'recebidas': inclui tudo onde Pago=true (comportamento original)
 
       // Percentual: Sheets armazena 10% como 0.1 → converte para 10
       let pct = parseValor(colPercentual >= 0 ? row[colPercentual] : 0);
       if (pct > 0 && pct <= 1) pct = pct * 100;
 
-      // Usa data de recebimento se preenchida, senão usa data de fechamento
-      const dataRecebidoRaw = colDataRecebido >= 0 ? row[colDataRecebido] : null;
-      const dataFechRaw     = colDataFech >= 0 ? row[colDataFech] : null;
-      const dataRef         = (dataRecebidoRaw && String(dataRecebidoRaw).trim() !== '' && String(dataRecebidoRaw).trim() !== '-')
-                              ? dataRecebidoRaw : dataFechRaw;
+      const dataFechRaw = colDataFech >= 0 ? row[colDataFech] : null;
+      // Para pendentes usa data de fechamento; para recebidas usa data de recebimento (ou fechamento como fallback)
+      const dataRef = tipo === 'pendentes'
+        ? dataFechRaw
+        : (!dataRecebidoVazia ? dataRecebidoRaw : dataFechRaw);
 
-      comissoes.push({
+      resultado.push({
         nome,
         valor:           parseValor(colValor    >= 0 ? row[colValor]    : 0),
         percentual:      pct,
@@ -74,10 +93,11 @@ function doGet(e) {
     }
 
     return jsonResponse({
-      success:    true,
-      comissoes,
-      total:      comissoes.length,
-      timestamp:  new Date().toISOString()
+      success:   true,
+      tipo,
+      comissoes: resultado,
+      total:     resultado.length,
+      timestamp: new Date().toISOString()
     });
 
   } catch (err) {
