@@ -125,6 +125,39 @@
     font-size: 14px; font-weight: 800;
   }
 
+  /* ── DASHBOARD HERO GRID (2×2) ── */
+  .dash-hero-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-top: 14px;
+  }
+  .dash-hero-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px;
+  }
+  .dash-hero-card-label {
+    font-size: 9px; color: var(--txt3); text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 700; margin-bottom: 5px;
+  }
+  .dash-hero-card-val { font-size: 15px; font-weight: 800; }
+
+  /* ── RECENT TRANSACTIONS LIST ── */
+  .recent-list { display: flex; flex-direction: column; }
+  .recent-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .recent-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .recent-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .recent-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .recent-info { flex: 1; min-width: 0; }
+  .recent-name { font-size: 14px; font-weight: 700; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-meta { font-size: 11px; color: var(--txt3); margin-top: 2px; }
+  .recent-amount { font-size: 15px; font-weight: 700; text-align: right; flex-shrink: 0; }
+
   /* ── WRAPPER ── */
   .app-wrapper { max-width: 960px; margin: 0 auto; padding: 0 16px 90px; }
   @media (min-width: 768px) { .app-wrapper { padding-bottom: 40px; } }
@@ -385,9 +418,8 @@
       <span class="app-title-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       </span>
-      Controle Financeiro
+      FINANCEIRO
     </div>
-    <div class="app-subtitle">Nubank Empresas · Sincronizado em tempo real com Firebase</div>
   </header>
 
   <nav class="desktop-nav">
@@ -433,8 +465,8 @@
       </div>
     </div>
     <div class="card">
-      <p class="section-title">Últimas transações</p>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Conta</th><th>Valor</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
+      <p class="section-title">Últimos Lançamentos</p>
+      <div class="recent-list" id="dash-recent"></div>
     </div>
   </div>
 
@@ -1211,43 +1243,66 @@ function getLast6Months(n){
   return months;
 }
 
+const CAT_ICON_SVG={
+  'Alimentação':'<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+  'Transporte':'<svg viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm-10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/></svg>',
+  'Moradia':'<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  'Saúde':'<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+  'Educação':'<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+  'Lazer':'<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  'Vestuário':'<svg viewBox="0 0 24 24"><path d="M20.38 3.46L16 2l-4 4-4-4-4.38 1.46a2 2 0 0 0-1.2 2.44l2 6a2 2 0 0 0 1.9 1.36h.72l1 6.7a1 1 0 0 0 1 .86h5.16a1 1 0 0 0 1-.86L16.52 15h.72a2 2 0 0 0 1.9-1.36l2-6a2 2 0 0 0-1.76-3.18z"/></svg>',
+  'Assinaturas':'<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+  'Cartão de crédito':'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+  'Impostos':'<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
+  'Transferência enviada':'<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+};
+function getCatIcon(cat,isReceita){
+  const svg=CAT_ICON_SVG[cat]||'<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+  const bg=isReceita?'rgba(0,230,118,0.12)':'rgba(255,82,82,0.10)';
+  const color=isReceita?'var(--green-accent)':'var(--red-accent)';
+  return`<div class="recent-icon" style="background:${bg};color:${color}">${svg}</div>`;
+}
+
 function renderDashboard(){
   const txs=load('transactions');
   const loans=load('loans');
+  const ccTxs=load('cc_transactions');
   const now=new Date();
   const curMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const mTxs=txs.filter(t=>monthKey(t.date)===curMonth);
   const receitas=mTxs.filter(t=>t.type==='receita').reduce((s,t)=>s+t.valor,0);
   const despesas=mTxs.filter(t=>t.type==='despesa').reduce((s,t)=>s+t.valor,0);
   const saldo=txs.reduce((s,t)=>t.type==='receita'?s+t.valor:s-t.valor,0);
-  const resultado=receitas-despesas;
   const totalDividas=loans.reduce((s,l)=>{const paid=l.paid||[];const idx=l.rows.findIndex((_,i)=>!paid.includes(i));return s+(idx>=0?l.rows[idx]?.saldo??0:0);},0);
+  const totalCC=ccTxs.filter(t=>monthKey(t.date)===curMonth).reduce((s,t)=>s+t.valor/t.parcelas,0);
   const mesAtual=MONTHS_PT[now.getMonth()]+' '+now.getFullYear();
 
-  // Hero de saldo
   document.getElementById('dash-hero').innerHTML=`
     <div class="dash-hero">
-      <div class="dash-hero-label">Saldo Total</div>
-      <div class="dash-hero-val ${saldo>=0?'pos':'neg'}">${fmtBRL(saldo)}</div>
+      <div class="dash-hero-label">Saldo Atual</div>
+      <div class="dash-hero-val">${fmtBRL(saldo)}</div>
       <div class="dash-hero-sub">${mesAtual} · Nubank Empresas</div>
-      <div class="dash-hero-row">
-        <div class="dash-hero-pill">
-          <div class="dash-hero-pill-label">↑ Receitas</div>
-          <div class="dash-hero-pill-val" style="color:var(--green-accent)">${fmtBRL(receitas)}</div>
+      <div class="dash-hero-grid">
+        <div class="dash-hero-card">
+          <div class="dash-hero-card-label">Receitas</div>
+          <div class="dash-hero-card-val" style="color:var(--green-accent)">${fmtBRL(receitas)}</div>
         </div>
-        <div class="dash-hero-pill">
-          <div class="dash-hero-pill-label">↓ Despesas</div>
-          <div class="dash-hero-pill-val" style="color:var(--red-accent)">${fmtBRL(despesas)}</div>
+        <div class="dash-hero-card">
+          <div class="dash-hero-card-label">Despesas</div>
+          <div class="dash-hero-card-val" style="color:var(--red-accent)">${fmtBRL(despesas)}</div>
         </div>
-        <div class="dash-hero-pill">
-          <div class="dash-hero-pill-label">= Resultado</div>
-          <div class="dash-hero-pill-val" style="color:${resultado>=0?'var(--green-accent)':'var(--red-accent)'}">${fmtBRL(resultado)}</div>
+        <div class="dash-hero-card">
+          <div class="dash-hero-card-label">Cartão CC</div>
+          <div class="dash-hero-card-val" style="color:var(--blue-accent)">${fmtBRL(totalCC)}</div>
+        </div>
+        <div class="dash-hero-card">
+          <div class="dash-hero-card-label">Empréstimo</div>
+          <div class="dash-hero-card-val" style="color:var(--amber-accent)">${fmtBRL(totalDividas)}</div>
         </div>
       </div>
     </div>`;
 
-  document.getElementById('dash-metrics').innerHTML=`
-    <div class="metric neu"><div class="metric-label">Dívidas ativas</div><div class="metric-val warn">${fmtBRL(totalDividas)}</div></div>`;
+  document.getElementById('dash-metrics').innerHTML='';
 
   const months=getLast6Months(6);
   const labels=months.map(m=>{const[y,mo]=m.split('-');return MONTHS_PT[parseInt(mo)-1]+'/'+y.slice(2);});
@@ -1261,7 +1316,19 @@ function renderDashboard(){
   destroyChart('dash-pie');
   if(catEntries.length)charts['dash-pie']=new Chart(document.getElementById('chart-dash-pie'),{type:'doughnut',data:{labels:catEntries.map(e=>e[0]),datasets:[{data:catEntries.map(e=>e[1]),backgroundColor:catEntries.map((_,i)=>CAT_COLORS[i]),borderWidth:2,borderColor:'#0a0a0a'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   const recent=txs.slice(0,6);
-  document.getElementById('dash-recent').innerHTML=recent.length?recent.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.desc}</td><td><span class="badge badge-blue">${t.cat}</span></td><td style="color:var(--txt2);font-size:12px">${t.conta}</td><td style="font-weight:600;color:${t.type==='receita'?'var(--green)':'var(--red)'}">${t.type==='receita'?'+':'-'}${fmtBRL(t.valor)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhuma transação ainda.</td></tr>';
+  document.getElementById('dash-recent').innerHTML=recent.length?recent.map(t=>{
+    const isRec=t.type==='receita';
+    const [y,m,d]=t.date.split('-');
+    const dateStr=`${d} ${MONTHS_PT[parseInt(m)-1]}`;
+    return`<div class="recent-item">
+      ${getCatIcon(t.cat,isRec)}
+      <div class="recent-info">
+        <div class="recent-name">${t.desc}</div>
+        <div class="recent-meta">${dateStr} · ${t.cat}</div>
+      </div>
+      <div class="recent-amount" style="color:${isRec?'var(--green-accent)':'var(--red-accent)'}">${isRec?'+':'-'}${fmtBRL(t.valor)}</div>
+    </div>`;
+  }).join(''):'<div class="empty">Nenhuma transação ainda.</div>';
 }
 
 function renderRelatorios(){
