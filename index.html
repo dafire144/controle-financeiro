@@ -658,15 +658,7 @@
       <!-- Painel: Importar -->
       <div id="panel-com-importar">
         <div class="notice">Busca automaticamente comissões com a caixinha <strong>Recebido</strong> marcada e <strong>Data de Recebimento</strong> preenchida na planilha de fechamentos.</div>
-        <div id="comissoes-webhook-setup" style="margin-bottom:14px">
-          <div class="form-row" style="align-items:flex-end">
-            <div class="form-group" style="flex:1">
-              <label>URL do Apps Script (webhook)</label>
-              <input type="text" id="comissoes-webhook-url" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
-            </div>
-            <button class="btn" onclick="salvarWebhookURL()" style="white-space:nowrap;height:38px">💾 Salvar URL</button>
-          </div>
-        </div>
+        <input type="hidden" id="comissoes-webhook-url">
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="previewComissoes()">🔄 Buscar comissões</button>
           <span id="comissoes-status" style="font-size:12px;color:var(--txt3)"></span>
