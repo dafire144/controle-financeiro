@@ -1534,17 +1534,17 @@ async function previewComissoes() {
     if (!json.success) throw new Error(json.error || 'Resposta inválida do script.');
 
     const importedKeys = JSON.parse(localStorage.getItem('fin_imported_comissoes') || '[]');
-    const items = (json.comissoes || []).map(c => ({
-      ...c,
-      key: `${c.nome}_${c.data}_${c.comissao}`,
-      alreadyImported: importedKeys.includes(`${c.nome}_${c.data}_${c.comissao}`)
-    }));
+    const items = (json.comissoes || []).map(c => {
+      const dataRef = c.data_recebido || c.data_fechamento || '';
+      const key = `${c.nome}_${dataRef}_${c.comissao}`;
+      return { ...c, _dataRef: dataRef, key, alreadyImported: importedKeys.includes(key) };
+    });
 
     const novos = items.filter(i => !i.alreadyImported);
     statusEl.textContent = `${items.length} comissão(ões) recebida(s) · ${novos.length} nova(s)`;
 
     if (!items.length) {
-      previewEl.innerHTML = '<div class="notice">Nenhuma comissão com "Recebido" marcado e data preenchida foi encontrada.</div>';
+      previewEl.innerHTML = '<div class="notice">Nenhuma comissão com a caixinha <strong>Pago</strong> marcada foi encontrada.</div>';
       return;
     }
 
@@ -1556,7 +1556,7 @@ async function previewComissoes() {
             ${items.map(item => `
               <tr style="${item.alreadyImported ? 'opacity:0.45' : ''}">
                 <td style="font-weight:500">${item.nome}</td>
-                <td>${fmtDate(item.data)}</td>
+                <td>${fmtDate(item._dataRef)}</td>
                 <td style="font-weight:600;color:var(--green)">+${fmtBRL(item.comissao)}</td>
                 <td>${item.alreadyImported
                   ? '<span class="badge badge-amber">Já importado</span>'
@@ -1586,12 +1586,12 @@ function confirmarImportacaoComissoes() {
     txs.unshift({
       id: Date.now() + idx,
       type: 'receita',
-      date: item.data,
+      date: item._dataRef || item.data_recebido || item.data_fechamento || today(),
       desc: 'Comissão — ' + item.nome,
       valor: item.comissao,
       cat: 'Comissão',
       conta: 'Nubank Empresas',
-      obs: 'Importado da planilha de fechamentos'
+      obs: item.obs ? `Importado da planilha · ${item.obs}` : 'Importado da planilha de fechamentos'
     });
     importedKeys.push(item.key);
   });
@@ -1602,10 +1602,10 @@ function confirmarImportacaoComissoes() {
   document.getElementById('comissoes-preview').innerHTML = `
     <div class="notice" style="background:var(--green-bg);color:var(--green)">
       <strong>✅ ${items.length} comissão(ões) importada(s) com sucesso!</strong><br>
-      Veja em Lançamentos filtrando por mês.
+      Aparecendo agora na lista de transações abaixo ↓
     </div>`;
-  renderTransactions();
   populateMonthFilter();
+  renderTransactions();
 }
 // ===== RELATÓRIO SEMANAL DE COMISSÕES =====
 function switchComTab(t) {
