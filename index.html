@@ -1511,12 +1511,7 @@ async function previewComissoes() {
   const statusEl = document.getElementById('comissoes-status');
   const previewEl = document.getElementById('comissoes-preview');
 
-  const webhookURL = localStorage.getItem('fin_comissoes_webhook') || document.getElementById('comissoes-webhook-url').value.trim() || COMISSOES_WEBHOOK_DEFAULT;
-  if (!webhookURL) {
-    statusEl.textContent = '';
-    previewEl.innerHTML = '<div style="background:var(--amber-bg);color:var(--amber);border-radius:var(--radius);padding:12px 16px;font-size:13px">⚠️ Cole a URL do Apps Script acima e clique em Salvar URL antes de buscar.</div>';
-    return;
-  }
+  const webhookURL = COMISSOES_WEBHOOK_DEFAULT;
 
   statusEl.textContent = 'Buscando dados da planilha...';
   previewEl.innerHTML = '<div style="color:var(--txt3);font-size:13px;padding:8px 0">⏳ Carregando...</div>';
@@ -1649,7 +1644,7 @@ let _relatorioItems = [];
 
 async function carregarRelatorioComissoes() {
   const statusEl = document.getElementById('relatorio-status');
-  const webhookURL = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
+  const webhookURL = COMISSOES_WEBHOOK_DEFAULT;
   statusEl.textContent = 'Carregando...';
   document.getElementById('relatorio-output').innerHTML = '';
   try {
