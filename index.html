@@ -67,7 +67,7 @@
   #fb-bar {
     background: var(--surface);
     border-bottom: 1px solid var(--border2);
-    padding: 8px 16px;
+    padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -77,9 +77,52 @@
   }
   #fb-bar-login, #fb-bar-user { display: flex; align-items: center; gap: 8px; }
   @media (max-width: 480px) {
-    #fb-bar { padding: 7px 12px; }
+    #fb-bar { padding: calc(env(safe-area-inset-top) + 7px) 12px 7px; }
     #fb-bar .fb-label { display: none; }
     #fb-sync-status { display: none; }
+  }
+
+  /* ── DASHBOARD HERO ── */
+  .dash-hero {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 18px 18px 16px;
+    margin-bottom: 12px;
+    position: relative; overflow: hidden;
+  }
+  .dash-hero::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--green-accent), #69f0ae);
+  }
+  .dash-hero-label {
+    font-size: 10px; font-weight: 700; color: var(--txt3);
+    text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;
+  }
+  .dash-hero-val {
+    font-size: 36px; font-weight: 900; letter-spacing: -1.5px; line-height: 1;
+    color: var(--txt);
+  }
+  .dash-hero-val.pos { color: var(--green-accent); }
+  .dash-hero-val.neg { color: var(--red-accent); }
+  .dash-hero-sub {
+    font-size: 11px; color: var(--txt3); margin-top: 6px;
+  }
+  .dash-hero-row {
+    display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+  }
+  .dash-hero-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; flex: 1; min-width: 100px;
+  }
+  .dash-hero-pill-label {
+    font-size: 9px; color: var(--txt3); text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 700; margin-bottom: 4px;
+  }
+  .dash-hero-pill-val {
+    font-size: 14px; font-weight: 800;
   }
 
   /* ── WRAPPER ── */
@@ -372,6 +415,7 @@
 
   <!-- DASHBOARD -->
   <div id="screen-dashboard" class="screen active">
+    <div id="dash-hero"></div>
     <div class="cards-row" id="dash-metrics"></div>
     <div class="two-col">
       <div class="card">
@@ -1176,24 +1220,46 @@ function renderDashboard(){
   const receitas=mTxs.filter(t=>t.type==='receita').reduce((s,t)=>s+t.valor,0);
   const despesas=mTxs.filter(t=>t.type==='despesa').reduce((s,t)=>s+t.valor,0);
   const saldo=txs.reduce((s,t)=>t.type==='receita'?s+t.valor:s-t.valor,0);
+  const resultado=receitas-despesas;
   const totalDividas=loans.reduce((s,l)=>{const paid=l.paid||[];const idx=l.rows.findIndex((_,i)=>!paid.includes(i));return s+(idx>=0?l.rows[idx]?.saldo??0:0);},0);
+  const mesAtual=MONTHS_PT[now.getMonth()]+' '+now.getFullYear();
+
+  // Hero de saldo
+  document.getElementById('dash-hero').innerHTML=`
+    <div class="dash-hero">
+      <div class="dash-hero-label">Saldo Total</div>
+      <div class="dash-hero-val ${saldo>=0?'pos':'neg'}">${fmtBRL(saldo)}</div>
+      <div class="dash-hero-sub">${mesAtual} · Nubank Empresas</div>
+      <div class="dash-hero-row">
+        <div class="dash-hero-pill">
+          <div class="dash-hero-pill-label">↑ Receitas</div>
+          <div class="dash-hero-pill-val" style="color:var(--green-accent)">${fmtBRL(receitas)}</div>
+        </div>
+        <div class="dash-hero-pill">
+          <div class="dash-hero-pill-label">↓ Despesas</div>
+          <div class="dash-hero-pill-val" style="color:var(--red-accent)">${fmtBRL(despesas)}</div>
+        </div>
+        <div class="dash-hero-pill">
+          <div class="dash-hero-pill-label">= Resultado</div>
+          <div class="dash-hero-pill-val" style="color:${resultado>=0?'var(--green-accent)':'var(--red-accent)'}">${fmtBRL(resultado)}</div>
+        </div>
+      </div>
+    </div>`;
+
   document.getElementById('dash-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Saldo total</div><div class="metric-val ${saldo>=0?'pos':'neg'}">${fmtBRL(saldo)}</div></div>
-    <div class="metric"><div class="metric-label">Receitas este mês</div><div class="metric-val pos">${fmtBRL(receitas)}</div></div>
-    <div class="metric"><div class="metric-label">Despesas este mês</div><div class="metric-val neg">${fmtBRL(despesas)}</div></div>
-    <div class="metric"><div class="metric-label">Resultado do mês</div><div class="metric-val ${receitas-despesas>=0?'pos':'neg'}">${fmtBRL(receitas-despesas)}</div></div>
-    <div class="metric"><div class="metric-label">Dívidas ativas</div><div class="metric-val warn">${fmtBRL(totalDividas)}</div></div>`;
+    <div class="metric neu"><div class="metric-label">Dívidas ativas</div><div class="metric-val warn">${fmtBRL(totalDividas)}</div></div>`;
+
   const months=getLast6Months(6);
   const labels=months.map(m=>{const[y,mo]=m.split('-');return MONTHS_PT[parseInt(mo)-1]+'/'+y.slice(2);});
   const recData=months.map(m=>txs.filter(t=>monthKey(t.date)===m&&t.type==='receita').reduce((s,t)=>s+t.valor,0));
   const despData=months.map(m=>txs.filter(t=>monthKey(t.date)===m&&t.type==='despesa').reduce((s,t)=>s+t.valor,0));
   destroyChart('dash-bar');
-  charts['dash-bar']=new Chart(document.getElementById('chart-dash-bar'),{type:'bar',data:{labels,datasets:[{label:'Receitas',data:recData,backgroundColor:'#639922',borderRadius:5},{label:'Despesas',data:despData,backgroundColor:'#E24B4A',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888'}},y:{ticks:{color:'#888',callback:v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',notation:'compact'})}}}}});
+  charts['dash-bar']=new Chart(document.getElementById('chart-dash-bar'),{type:'bar',data:{labels,datasets:[{label:'Receitas',data:recData,backgroundColor:'#00e676',borderRadius:5},{label:'Despesas',data:despData,backgroundColor:'#ff5252',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555'},grid:{color:'#111'}},y:{ticks:{color:'#555',callback:v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',notation:'compact'})},grid:{color:'#111'}}}}});
   const catTotals={};txs.filter(t=>t.type==='despesa').forEach(t=>{catTotals[t.cat]=(catTotals[t.cat]||0)+t.valor;});
   const catEntries=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,7);
   document.getElementById('chart-cat-legend').innerHTML=catEntries.map((e,i)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${CAT_COLORS[i]};display:inline-block"></span><span style="font-size:11px;color:var(--txt2)">${e[0]}</span></span>`).join('');
   destroyChart('dash-pie');
-  if(catEntries.length)charts['dash-pie']=new Chart(document.getElementById('chart-dash-pie'),{type:'doughnut',data:{labels:catEntries.map(e=>e[0]),datasets:[{data:catEntries.map(e=>e[1]),backgroundColor:catEntries.map((_,i)=>CAT_COLORS[i]),borderWidth:2,borderColor:'var(--surface)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+  if(catEntries.length)charts['dash-pie']=new Chart(document.getElementById('chart-dash-pie'),{type:'doughnut',data:{labels:catEntries.map(e=>e[0]),datasets:[{data:catEntries.map(e=>e[1]),backgroundColor:catEntries.map((_,i)=>CAT_COLORS[i]),borderWidth:2,borderColor:'#0a0a0a'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   const recent=txs.slice(0,6);
   document.getElementById('dash-recent').innerHTML=recent.length?recent.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${t.desc}</td><td><span class="badge badge-blue">${t.cat}</span></td><td style="color:var(--txt2);font-size:12px">${t.conta}</td><td style="font-weight:600;color:${t.type==='receita'?'var(--green)':'var(--red)'}">${t.type==='receita'?'+':'-'}${fmtBRL(t.valor)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhuma transação ainda.</td></tr>';
 }
@@ -1215,7 +1281,7 @@ function renderRelatorios(){
   let saldoAcc=0;
   const saldoData=months.map(m=>{const r=txs.filter(t=>monthKey(t.date)===m).reduce((s,t)=>t.type==='receita'?s+t.valor:s-t.valor,0);saldoAcc+=r;return saldoAcc;});
   destroyChart('saldo-line');
-  charts['saldo-line']=new Chart(document.getElementById('chart-saldo'),{type:'line',data:{labels,datasets:[{label:'Saldo acumulado',data:saldoData,borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.1)',fill:true,tension:0.3,pointRadius:5,pointBackgroundColor:'#185FA5'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888',maxRotation:45}},y:{ticks:{color:'#888',callback:v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',notation:'compact'})}}}}});
+  charts['saldo-line']=new Chart(document.getElementById('chart-saldo'),{type:'line',data:{labels,datasets:[{label:'Saldo acumulado',data:saldoData,borderColor:'#00e676',backgroundColor:'rgba(0,230,118,0.08)',fill:true,tension:0.3,pointRadius:5,pointBackgroundColor:'#00e676'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',maxRotation:45},grid:{color:'#111'}},y:{ticks:{color:'#555',callback:v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',notation:'compact'})},grid:{color:'#111'}}}}});
   const recMes=months.map(m=>inPeriod.filter(t=>monthKey(t.date)===m&&t.type==='receita').reduce((s,t)=>s+t.valor,0));
   const despMes=months.map(m=>inPeriod.filter(t=>monthKey(t.date)===m&&t.type==='despesa').reduce((s,t)=>s+t.valor,0));
   destroyChart('rv-bar');
