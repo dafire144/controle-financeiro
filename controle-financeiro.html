@@ -605,6 +605,7 @@
       <button class="btn btn-sm btn-primary" onclick="openModal('modal-add-comissao')" style="white-space:nowrap;flex-shrink:0">+ Nova comissão</button>
     </div>
     <div class="cards-row" id="com-metrics"></div>
+    <div id="com-meta"></div>
     <div class="card">
       <div class="flex-between" style="margin-bottom:10px">
         <p class="section-title" style="margin:0">Etapas — <span id="com-aba-label">mês</span></p>
@@ -1940,22 +1941,69 @@ async function carregarComLinhas() {
   }
 }
 
+const COM_MESES_PT = { janeiro:1, fevereiro:2, 'março':3, marco:3, abril:4, maio:5, junho:6, julho:7, agosto:8, setembro:9, outubro:10, novembro:11, dezembro:12 };
+function comAbaMes() { const n = (_comAba||'').toLowerCase(); for (const k in COM_MESES_PT) { if (n.indexOf(k) >= 0) return COM_MESES_PT[k]; } return 0; }
+function comAbaAno() { let m = (_comAba||'').match(/(\d{4})/); if (m) return parseInt(m[1],10); m = (_comAba||'').match(/(\d{2})\b/); if (m) return 2000+parseInt(m[1],10); return new Date().getFullYear(); }
+function comFechadoNoMes(c, mes, ano) {
+  const m = String(c.data_fechamento||'').trim().match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+  if (!m) return false;
+  if (parseInt(m[2],10) !== mes) return false;
+  if (m[3]) { let y = parseInt(m[3],10); if (y < 100) y += 2000; return y === ano; }
+  return true;
+}
+
+function getComMetas() { try { return JSON.parse(localStorage.getItem('fin_com_metas') || '{}'); } catch(e) { return {}; } }
+function getComMeta(aba) { return parseFloat(getComMetas()[aba]) || 0; }
+function setComMetaFromInput(v) {
+  const metas = getComMetas();
+  metas[_comAba] = parseFloat(v) || 0;
+  localStorage.setItem('fin_com_metas', JSON.stringify(metas));
+  renderComMetrics();
+}
+
 function renderComMetrics() {
   const filled = v => { v = String(v == null ? '' : v).trim(); return v && v !== '-'; };
   // Recebido no mês: Recebido marcado + Data de recebimento preenchida
   const recebido  = _comRows.filter(c => c.recebido && filled(c.data_recebido)).reduce((s,c) => s + (c.comissao||0), 0);
-  // A receber: Fechado marcado e Pago NÃO marcado (ainda não pago)
-  const aReceber  = _comRows.filter(c => c.fechado && !c.pago).reduce((s,c) => s + (c.comissao||0), 0);
   // Porquinho: Pago marcado e Recebido NÃO marcado
   const porquinho = _comRows.filter(c => c.pago && !c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
   // Comissão na mesa: Fechado marcado, sem Pago e sem Assinado
   const naMesa    = _comRows.filter(c => c.fechado && !c.pago && !c.assinado).reduce((s,c) => s + (c.comissao||0), 0);
+  // Total fechado: VALOR das vendas com data de fechamento no mês selecionado
+  const mes = comAbaMes(), ano = comAbaAno();
+  const totalFechado = _comRows.filter(c => comFechadoNoMes(c, mes, ano)).reduce((s,c) => s + (c.valor||0), 0);
   const el = document.getElementById('com-metrics');
   if (el) el.innerHTML = `
+    <div class="metric neu"><div class="metric-label">Total fechado</div><div class="metric-val neu">${fmtBRL(totalFechado)}</div></div>
     <div class="metric pos"><div class="metric-label">Recebido no mês</div><div class="metric-val pos">${fmtBRL(recebido)}</div></div>
-    <div class="metric neu"><div class="metric-label">A receber</div><div class="metric-val neu">${fmtBRL(aReceber)}</div></div>
     <div class="metric warn"><div class="metric-label">🐷 Porquinho</div><div class="metric-val warn">${fmtBRL(porquinho)}</div></div>
     <div class="metric"><div class="metric-label">Comissão na mesa</div><div class="metric-val" style="color:var(--purple-accent)">${fmtBRL(naMesa)}</div></div>`;
+  renderComMeta(totalFechado);
+}
+
+function renderComMeta(totalFechado) {
+  const el = document.getElementById('com-meta');
+  if (!el) return;
+  const meta = getComMeta(_comAba);
+  const ratio = meta > 0 ? totalFechado / meta * 100 : 0;
+  const pct = Math.min(100, ratio);
+  const cor = ratio >= 100 ? '#00e676' : ratio >= 60 ? '#ffca28' : '#42a5f5';
+  el.innerHTML = `<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <p class="section-title" style="margin:0">🎯 Meta do mês</p>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:var(--txt2)">Meta R$</span>
+        <input type="number" id="com-meta-input" value="${meta || ''}" placeholder="0,00" step="0.01" min="0"
+          onchange="setComMetaFromInput(this.value)"
+          style="width:140px;font-size:13px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt);-webkit-appearance:none;appearance:none">
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+      <span style="color:var(--txt2)"><strong style="color:var(--txt)">${fmtBRL(totalFechado)}</strong> de ${meta > 0 ? fmtBRL(meta) : '—'}</span>
+      <span style="font-weight:800;color:${cor}">${meta > 0 ? Math.round(ratio) + '%' : 'defina a meta'}</span>
+    </div>
+    <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%;background:${cor}"></div></div>
+  </div>`;
 }
 
 function renderComStageList() {
