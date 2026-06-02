@@ -629,9 +629,9 @@
       </div>
       <div class="notice" style="font-size:12px">Toque nas etapas para marcar/desmarcar — grava direto na planilha. Colunas: <strong>Fechado · Assinado · Pago · Recebido · Data recebido</strong>.</div>
       <div class="table-wrap">
-        <table style="min-width:760px">
+        <table style="min-width:940px">
           <thead><tr>
-            <th>Cliente</th><th>Comissão</th><th>Venda</th>
+            <th>Cliente</th><th>Closer</th><th>Fechamento</th><th>Venda</th><th>Comissão</th>
             <th style="text-align:center">Fechado</th><th style="text-align:center">Assinado</th>
             <th style="text-align:center">Pago</th><th style="text-align:center">Recebido</th>
             <th>Data rec.</th><th>Obs</th>
@@ -1909,7 +1909,7 @@ async function carregarComLinhas() {
   setComAbaLabels();
   setComStatus('Carregando ' + _comAba + '...');
   const tbody = document.getElementById('com-body');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty" style="padding:24px">⏳ Carregando...</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="empty" style="padding:24px">⏳ Carregando...</td></tr>';
   try {
     const r = await fetch(getComWebhook() + '?action=list&aba=' + encodeURIComponent(_comAba));
     const j = await r.json();
@@ -1921,7 +1921,7 @@ async function carregarComLinhas() {
   } catch(e) {
     _comRows = [];
     renderComMetrics();
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty" style="padding:24px">⚠️ Erro ao carregar. Verifique o webhook.</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="empty" style="padding:24px">⚠️ Erro ao carregar. Verifique o webhook.</td></tr>';
     setComStatus('⚠️ ' + e.message);
   }
 }
@@ -1951,8 +1951,10 @@ function renderComStageList() {
     const pct = c.percentual ? ` <span style="color:var(--txt3);font-size:11px">${c.percentual % 1 === 0 ? c.percentual : c.percentual.toFixed(1)}%</span>` : '';
     return `<tr>
       <td style="font-weight:500;white-space:nowrap">${esc(c.nome)}</td>
-      <td style="font-weight:700;color:var(--green);white-space:nowrap">${c.comissao > 0 ? fmtBRL(c.comissao) : '—'}</td>
+      <td style="color:var(--txt2);white-space:nowrap">${esc(c.closer) || '—'}</td>
+      <td style="color:var(--txt2);white-space:nowrap">${esc(c.data_fechamento) || '—'}</td>
       <td style="color:var(--txt2);white-space:nowrap">${c.valor > 0 ? fmtBRL(c.valor) : '—'}${pct}</td>
+      <td style="font-weight:700;color:var(--green);white-space:nowrap">${c.comissao > 0 ? fmtBRL(c.comissao) : '—'}</td>
       <td style="text-align:center">${chip('fechado')}</td>
       <td style="text-align:center">${chip('assinado')}</td>
       <td style="text-align:center">${chip('pago')}</td>
