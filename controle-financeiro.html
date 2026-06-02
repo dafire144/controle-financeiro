@@ -645,13 +645,10 @@
 
     <div id="com-view-relatorio" style="display:none">
       <div class="card">
-        <p class="section-title">Relatório semanal de comissões</p>
-        <div class="notice">Gera o texto de prestação de contas por semana. Selecione o tipo de cada venda antes de copiar.</div>
+        <p class="section-title">🧾 Comissões em aberto (cobrança)</p>
+        <div class="notice">Puxa as vendas <strong>fechadas</strong> cuja comissão você <strong>ainda não recebeu</strong> (Recebido desmarcado). Escolha o tipo de cada venda e copie a mensagem para enviar na sexta.</div>
         <div style="display:flex;gap:10px;align-items:center;margin:12px 0 14px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="carregarRelatorioComissoes()">🔄 Carregar dados</button>
-          <select id="rel-semana" onchange="renderRelatorioSemana()" style="font-size:13px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt)">
-            <option value="">Selecione uma semana...</option>
-          </select>
+          <button class="btn btn-primary" onclick="carregarRelatorioComissoes()">🔄 Buscar em aberto</button>
           <span id="relatorio-status" style="font-size:12px;color:var(--txt3)"></span>
         </div>
         <div id="relatorio-output"></div>
@@ -1596,46 +1593,41 @@ function getCompetencia(dateStr) {
 let _relatorioData = [];
 let _relatorioItems = [];
 
+// Puxa as comissões EM ABERTO (vendas fechadas, ainda não recebidas) para cobrança
 async function carregarRelatorioComissoes() {
   const statusEl = document.getElementById('relatorio-status');
-  const webhookURL = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
-  statusEl.textContent = 'Carregando...';
-  document.getElementById('relatorio-output').innerHTML = '';
+  const out = document.getElementById('relatorio-output');
+  statusEl.textContent = 'Buscando comissões em aberto...';
+  out.innerHTML = '<div style="color:var(--txt3);font-size:13px;padding:8px 0">⏳ Carregando...</div>';
   try {
-    const resp = await fetch(webhookURL);
+    const resp = await fetch(getComWebhook() + '?tipo=pendentes');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const json = await resp.json();
     if (!json.success) throw new Error(json.error || 'Erro no script');
-    _relatorioData = json.comissoes || [];
-
-    // Agrupa por semana
-    const weeks = {};
-    _relatorioData.forEach(c => {
-      if (!c.data_recebido) return;
-      const key = getWeekKey(c.data_recebido);
-      if (!weeks[key]) weeks[key] = getWeekLabel(c.data_recebido);
-    });
-    const sorted = Object.entries(weeks).sort((a, b) => b[0].localeCompare(a[0]));
-    const sel = document.getElementById('rel-semana');
-    sel.innerHTML = '<option value="">Selecione uma semana...</option>' +
-      sorted.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
-
-    if (sorted.length) { sel.value = sorted[0][0]; renderRelatorioSemana(); }
-    statusEl.textContent = `${_relatorioData.length} comissão(ões) recebida(s) encontrada(s)`;
+    // Em aberto = venda fechada e comissão ainda não recebida (Recebido desmarcado)
+    _relatorioItems = (json.comissoes || []).filter(c => c.fechado && !c.recebido);
+    // mais recentes primeiro
+    _relatorioItems.sort((a, b) => String(b.data_fechamento||'').localeCompare(String(a.data_fechamento||'')));
+    renderRelatorioAberto();
+    statusEl.textContent = `${_relatorioItems.length} comissão(ões) em aberto`;
   } catch(e) {
     statusEl.textContent = 'Erro: ' + e.message;
+    out.innerHTML = `<div style="background:var(--red-bg);color:var(--red);border-radius:var(--radius);padding:12px 16px;font-size:13px">⚠️ ${e.message}</div>`;
   }
 }
 
-function renderRelatorioSemana() {
-  const semana = document.getElementById('rel-semana').value;
+function renderRelatorioAberto() {
   const out = document.getElementById('relatorio-output');
-  if (!semana) { out.innerHTML = ''; return; }
-  _relatorioItems = _relatorioData.filter(c => c.data_recebido && getWeekKey(c.data_recebido) === semana);
-  if (!_relatorioItems.length) { out.innerHTML = '<div class="empty">Nenhuma comissão nesta semana.</div>'; return; }
+  if (!out) return;
+  if (!_relatorioItems.length) {
+    out.innerHTML = '<div class="empty">Nenhuma comissão em aberto 🎉<br><small>Tudo recebido!</small></div>';
+    return;
+  }
+  const total = _relatorioItems.reduce((s,c) => s + (c.comissao||0), 0);
   out.innerHTML =
-    `<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-       <button class="btn btn-sm" onclick="copiarTodasComissoes()">📋 Copiar todas</button>
+    `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+       <span style="font-size:13px;color:var(--txt2)">Total em aberto: <strong style="color:var(--green)">${fmtBRL(total)}</strong></span>
+       <button class="btn btn-sm btn-primary" onclick="copiarTodasComissoes()">📋 Copiar mensagem completa</button>
      </div>` +
     _relatorioItems.map((item, idx) => renderCardRelatorio(item, idx)).join('');
   _relatorioItems.forEach((_, idx) => atualizarTextoRelatorio(idx));
@@ -1884,7 +1876,7 @@ function switchComView(v) {
   const tR = document.getElementById('tab-cv-relatorio');
   if (tE) tE.className = 'tab-mini' + (v === 'etapas' ? ' active' : '');
   if (tR) tR.className = 'tab-mini' + (v === 'relatorio' ? ' active' : '');
-  if (v === 'relatorio' && !_relatorioData.length) carregarRelatorioComissoes();
+  if (v === 'relatorio') carregarRelatorioComissoes();
 }
 
 async function carregarComMeses() {
