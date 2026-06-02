@@ -779,26 +779,13 @@
         <input type="number" id="com-comissao" placeholder="Auto" step="0.01" min="0">
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:12px">
-      <label>Etapas</label>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 0">
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-fechado" style="width:18px;height:18px;accent-color:#00e676">Fechado</label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-assinado" style="width:18px;height:18px;accent-color:#00e676">Assinado</label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-pago" style="width:18px;height:18px;accent-color:#00e676">Pago</label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-recebido" style="width:18px;height:18px;accent-color:#00e676">Recebido</label>
-      </div>
-    </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Data recebido</label>
-        <input type="text" id="com-data-recebido" placeholder="-">
-      </div>
       <div class="form-group">
         <label>Observação</label>
         <input type="text" id="com-obs" placeholder="Notas adicionais...">
       </div>
     </div>
-    <p style="font-size:11px;color:var(--txt3);margin-bottom:14px">★ Obrigatório. Datas em formato livre (ex: <strong>02/06</strong>), igual à planilha.</p>
+    <p style="font-size:11px;color:var(--txt3);margin-bottom:14px">★ Obrigatório. As etapas (Fechado/Assinado/Pago/Recebido) você marca depois, na tabela do mês. Datas em formato livre (ex: <strong>02/06</strong>), igual à planilha.</p>
     <button class="btn btn-primary" onclick="addComissao()" style="width:100%;padding:12px">✅ Salvar na planilha</button>
   </div>
 </div>
@@ -2070,7 +2057,6 @@ function calcComissaoAuto() {
 async function addComissao() {
   if (!_comAba) { alert('Selecione um mês primeiro.'); return; }
   const gv = id => (document.getElementById(id) || {}).value || '';
-  const ck = id => !!(document.getElementById(id) || {}).checked;
   const nome = gv('com-nome').trim();
   if (!nome) { alert('Informe o nome do cliente.'); return; }
   const params = new URLSearchParams({
@@ -2081,11 +2067,6 @@ async function addComissao() {
     valor: parseFloat(gv('com-valor')) || '',
     percentual: parseFloat(gv('com-percentual')) || '',
     comissao: parseFloat(gv('com-comissao')) || '',
-    fechado:  ck('com-st-fechado')  ? 'TRUE' : 'FALSE',
-    assinado: ck('com-st-assinado') ? 'TRUE' : 'FALSE',
-    pago:     ck('com-st-pago')     ? 'TRUE' : 'FALSE',
-    recebido: ck('com-st-recebido') ? 'TRUE' : 'FALSE',
-    data_recebido: gv('com-data-recebido').trim(),
     obs: gv('com-obs').trim()
   });
   setComStatus('⏳ Gravando ' + nome + ' na planilha...');
@@ -2097,10 +2078,8 @@ async function addComissao() {
   } catch(e) {}
   if (ok) {
     closeModal('modal-add-comissao');
-    ['com-nome','com-data-fechamento','com-valor','com-percentual','com-comissao','com-data-recebido','com-obs']
+    ['com-nome','com-data-fechamento','com-valor','com-percentual','com-comissao','com-obs']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    ['com-st-fechado','com-st-assinado','com-st-pago','com-st-recebido']
-      .forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
     await carregarComLinhas();
     setComStatus('✅ ' + nome + ' adicionada em ' + _comAba);
   } else {
