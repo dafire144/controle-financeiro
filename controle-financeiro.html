@@ -1874,7 +1874,15 @@ async function carregarComMeses() {
     if (!j.success) throw new Error(j.error || 'Resposta inválida');
     _comMeses = j.meses || [];
     if (!_comMeses.length) { setComStatus('⚠️ Nenhuma aba retornada. Publique o Apps Script novo (com as ações months/list/update) para ver e editar as etapas.'); return; }
-    if (!_comAba || !_comMeses.includes(_comAba)) _comAba = _comMeses[_comMeses.length - 1]; // última = mês atual
+    if (!_comAba || !_comMeses.includes(_comAba)) {
+      // Seleciona a aba do mês/ano atual; se ainda não existir, cai na última
+      const now = new Date();
+      const atual = _comMeses.find(m => {
+        const x = mesAnoDeNome(m);
+        return x.mes === (now.getMonth() + 1) && x.ano === now.getFullYear();
+      });
+      _comAba = atual || _comMeses[_comMeses.length - 1];
+    }
     renderComMonthTabs();
     await carregarComLinhas();
   } catch(e) {
@@ -1921,8 +1929,16 @@ async function carregarComLinhas() {
 }
 
 const COM_MESES_PT = { janeiro:1, fevereiro:2, 'março':3, marco:3, abril:4, maio:5, junho:6, julho:7, agosto:8, setembro:9, outubro:10, novembro:11, dezembro:12 };
-function comAbaMes() { const n = (_comAba||'').toLowerCase(); for (const k in COM_MESES_PT) { if (n.indexOf(k) >= 0) return COM_MESES_PT[k]; } return 0; }
-function comAbaAno() { let m = (_comAba||'').match(/(\d{4})/); if (m) return parseInt(m[1],10); m = (_comAba||'').match(/(\d{2})\b/); if (m) return 2000+parseInt(m[1],10); return new Date().getFullYear(); }
+function mesAnoDeNome(nome) {
+  const n = (nome || '').toLowerCase();
+  let mes = 0;
+  for (const k in COM_MESES_PT) { if (n.indexOf(k) >= 0) { mes = COM_MESES_PT[k]; break; } }
+  let ano = 0, m4 = n.match(/(\d{4})/), m2 = n.match(/(\d{2})\b/);
+  if (m4) ano = parseInt(m4[1], 10); else if (m2) ano = 2000 + parseInt(m2[1], 10);
+  return { mes, ano };
+}
+function comAbaMes() { return mesAnoDeNome(_comAba).mes; }
+function comAbaAno() { return mesAnoDeNome(_comAba).ano || new Date().getFullYear(); }
 function comFechadoNoMes(c, mes, ano) {
   const m = String(c.data_fechamento||'').trim().match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
   if (!m) return false;
