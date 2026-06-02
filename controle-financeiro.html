@@ -196,6 +196,9 @@
   .mob-nav-btn.active .nav-icon svg {
     filter: drop-shadow(0 0 5px rgba(0,230,118,0.7));
   }
+  .mobile-nav.six-items .mob-nav-btn { padding: 8px 2px 9px; }
+  .mobile-nav.six-items .mob-nav-btn .nav-icon svg { width: 18px; height: 18px; }
+  .mobile-nav.six-items .mob-nav-btn .nav-label { font-size: 8px; }
 
   /* ── SCREEN ── */
   .screen { display: none; }
@@ -399,6 +402,10 @@
       <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/></svg>
       Lançamentos
     </button>
+    <button class="nav-btn" onclick="showScreen('comissoes',this)">
+      <svg viewBox="0 0 24 24"><path d="M19 5L5 19" stroke-linecap="round"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+      Comissões
+    </button>
     <button class="nav-btn" onclick="showScreen('cartao',this)">
       <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
       Cartão de Crédito
@@ -582,6 +589,42 @@
     <div id="loans-empty" class="empty" style="display:none">Nenhum empréstimo cadastrado.<br><small>Adicione empréstimos para acompanhar as parcelas.</small></div>
   </div>
 
+  <!-- COMISSÕES -->
+  <div id="screen-comissoes" class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;max-width:calc(100vw - 180px)">
+        <div id="com-month-tabs" class="tabs-mini" style="flex-wrap:nowrap;min-width:max-content"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="openModal('modal-add-comissao')" style="white-space:nowrap;flex-shrink:0">+ Nova comissão</button>
+    </div>
+    <div class="cards-row" id="com-metrics"></div>
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:12px">
+        <p class="section-title" style="margin:0">Comissões do mês</p>
+        <span id="com-count" style="font-size:12px;color:var(--txt3)"></span>
+      </div>
+      <div class="table-wrap">
+        <table style="min-width:560px">
+          <thead><tr><th>Fechamento</th><th>Recebido</th><th>Cliente</th><th>Venda</th><th>%</th><th>Comissão</th><th>Tipo</th><th></th></tr></thead>
+          <tbody id="com-body"></tbody>
+        </table>
+      </div>
+      <div id="com-empty" class="empty" style="display:none">Nenhuma comissão neste mês.<br><small>Clique em "+ Nova comissão" para adicionar.</small></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <p class="section-title">Configuração — Google Sheets</p>
+      <div class="notice">Ao salvar uma comissão, o app tenta gravá-la na aba do mês correto da planilha (ex: <strong>Jun 2026</strong>) via Apps Script. Seu script precisa aceitar <code style="background:var(--surface3);padding:1px 5px;border-radius:4px">?action=write</code> com os campos da comissão.</div>
+      <div class="form-row" style="align-items:flex-end;margin-top:10px">
+        <div class="form-group" style="flex:1">
+          <label>URL do Apps Script (webhook)</label>
+          <input type="text" id="com-webhook-url" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+        </div>
+        <button class="btn" onclick="salvarComWebhookURL()" style="white-space:nowrap;height:40px">💾 Salvar URL</button>
+      </div>
+      <div id="com-sheet-status" style="font-size:12px;color:var(--txt3);margin-top:6px;min-height:18px"></div>
+    </div>
+  </div>
+
   <!-- RELATÓRIOS -->
   <div id="screen-relatorios" class="screen">
     <div class="flex-between">
@@ -677,6 +720,59 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-add-comissao">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><span class="modal-title">📊 Nova comissão</span><button class="close-btn" onclick="closeModal('modal-add-comissao')">×</button></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Cliente / SaaS ★</label>
+        <input type="text" id="com-nome" placeholder="Ex: Empresa XYZ">
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="com-tipo">
+          <option value="">Selecione...</option>
+          <option value="MVP">MVP</option>
+          <option value="TCV">TCV</option>
+          <option value="MRR">MRR</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data de fechamento</label>
+        <input type="date" id="com-data-fechamento">
+      </div>
+      <div class="form-group">
+        <label>Data de recebimento ★</label>
+        <input type="date" id="com-data-recebido">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Valor da venda (R$)</label>
+        <input type="number" id="com-valor" placeholder="0,00" step="0.01" min="0" oninput="calcComissaoAuto()">
+      </div>
+      <div class="form-group">
+        <label>% Comissão</label>
+        <input type="number" id="com-percentual" placeholder="Ex: 5" step="0.01" min="0" oninput="calcComissaoAuto()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Valor da comissão (R$) ★</label>
+        <input type="number" id="com-comissao" placeholder="Auto ou manual" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <input type="text" id="com-obs" placeholder="Notas adicionais...">
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--txt3);margin-bottom:14px">★ Obrigatórios. O mês do <strong>recebimento</strong> define a aba da planilha. A comissão também é salva como receita em Lançamentos.</p>
+    <button class="btn btn-primary" onclick="addComissao()" style="width:100%;padding:12px">✅ Salvar comissão</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-amort">
   <div class="modal" style="max-width:620px">
     <div class="modal-header"><span class="modal-title" id="amort-title">Tabela de amortização</span><button class="close-btn" onclick="closeModal('modal-amort')">×</button></div>
@@ -717,7 +813,7 @@ const FB_CONFIG = {
 firebase.initializeApp(FB_CONFIG);
 const fbAuth = firebase.auth();
 const fbDB   = firebase.database();
-const FB_SYNC_KEYS = ['transactions','cards','cc_transactions','loans'];
+const FB_SYNC_KEYS = ['transactions','cards','cc_transactions','loans','commissions'];
 let fbUser = null;
 let fbListenersActive = false;
 
@@ -792,6 +888,7 @@ function fbRenderAll(){
   else if(id==='cartao'){renderCards();renderCCTransactions();renderFaturas();}
   else if(id==='emprestimos') renderLoans();
   else if(id==='relatorios') renderRelatorios();
+  else if(id==='comissoes') renderComissoes();
 }
 // ─────────────────────────────────────────────────────────────────────────────
 function fmtBRL(v){ return 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
@@ -813,6 +910,7 @@ function showScreen(id, btn){
   if(id==='cartao'){renderCards();renderCCTransactions();renderFaturas();populateCCCardFilter();}
   if(id==='emprestimos') renderLoans();
   if(id==='relatorios') renderRelatorios();
+  if(id==='comissoes') renderComissoes();
 }
 
 function updateMobNav(id){
@@ -1717,10 +1815,188 @@ async function gdriveLoad() {
 
 // ===== END GOOGLE DRIVE =====
 
+// ===== COMISSÕES (ABA SEPARADA) =====
+let _comSelectedMonth = '';
+
+function renderComissoes() {
+  const coms = load('commissions');
+  const now = new Date();
+  const curMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const months = [...new Set([curMonth, ...coms.map(c => monthKey(c.data_recebido || c.data_fechamento)).filter(Boolean)])].sort().reverse();
+  if (!_comSelectedMonth || !months.includes(_comSelectedMonth)) _comSelectedMonth = months[0] || curMonth;
+  renderComMonthTabs(months);
+  renderComMetrics(coms);
+  renderComList(coms);
+  carregarComWebhookURL();
+}
+
+function renderComMonthTabs(months) {
+  const el = document.getElementById('com-month-tabs');
+  if (!el) return;
+  el.innerHTML = months.map(m => {
+    const [y, mo] = m.split('-');
+    return `<button class="tab-mini${m === _comSelectedMonth ? ' active' : ''}" onclick="selectComMonth('${m}')">${MONTHS_PT[parseInt(mo)-1]}/${y}</button>`;
+  }).join('');
+}
+
+function selectComMonth(m) {
+  _comSelectedMonth = m;
+  const coms = load('commissions');
+  renderComMonthTabs([...new Set([m, ...coms.map(c => monthKey(c.data_recebido || c.data_fechamento)).filter(Boolean)])].sort().reverse());
+  renderComMetrics(coms);
+  renderComList(coms);
+}
+
+function renderComMetrics(coms) {
+  const f = coms.filter(c => monthKey(c.data_recebido || c.data_fechamento) === _comSelectedMonth);
+  const totalCom   = f.reduce((s,c) => s + (c.comissao || 0), 0);
+  const totalVenda = f.reduce((s,c) => s + (c.valor || 0), 0);
+  const totalGeral = coms.reduce((s,c) => s + (c.comissao || 0), 0);
+  document.getElementById('com-metrics').innerHTML = `
+    <div class="metric pos"><div class="metric-label">Comissões no mês</div><div class="metric-val pos">${fmtBRL(totalCom)}</div></div>
+    <div class="metric neu"><div class="metric-label">Volume de vendas</div><div class="metric-val neu">${fmtBRL(totalVenda)}</div></div>
+    <div class="metric warn"><div class="metric-label">Qtde no mês</div><div class="metric-val warn" style="font-size:26px">${f.length}</div></div>
+    <div class="metric pos"><div class="metric-label">Total acumulado</div><div class="metric-val pos">${fmtBRL(totalGeral)}</div></div>`;
+}
+
+function renderComList(coms) {
+  const f = coms.filter(c => monthKey(c.data_recebido || c.data_fechamento) === _comSelectedMonth);
+  const tbody = document.getElementById('com-body');
+  const empty = document.getElementById('com-empty');
+  const countEl = document.getElementById('com-count');
+  if (countEl) countEl.textContent = f.length + ' registro' + (f.length !== 1 ? 's' : '');
+  if (!f.length) { if (tbody) tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  const tipoBadge = t => ({ MVP:'badge-blue', TCV:'badge-purple', MRR:'badge-green' }[t] || 'badge-amber');
+  tbody.innerHTML = f.map(c => `<tr>
+    <td style="white-space:nowrap">${fmtDate(c.data_fechamento) || '—'}</td>
+    <td style="white-space:nowrap">${fmtDate(c.data_recebido) || '—'}</td>
+    <td style="font-weight:500">${c.nome}</td>
+    <td style="color:var(--txt2)">${c.valor > 0 ? fmtBRL(c.valor) : '—'}</td>
+    <td style="color:var(--txt2)">${c.percentual > 0 ? c.percentual + '%' : '—'}</td>
+    <td style="font-weight:700;color:var(--green)">+${fmtBRL(c.comissao)}</td>
+    <td>${c.tipo ? `<span class="badge ${tipoBadge(c.tipo)}">${c.tipo}</span>` : '—'}</td>
+    <td><button class="btn btn-sm btn-danger" onclick="deleteComissao(${c.id})">Remover</button></td>
+  </tr>`).join('');
+}
+
+function calcComissaoAuto() {
+  const v = parseFloat(document.getElementById('com-valor').value) || 0;
+  const p = parseFloat(document.getElementById('com-percentual').value) || 0;
+  if (v > 0 && p > 0) document.getElementById('com-comissao').value = (v * p / 100).toFixed(2);
+}
+
+async function addComissao() {
+  const nome          = document.getElementById('com-nome').value.trim();
+  const data_fechamento = document.getElementById('com-data-fechamento').value;
+  const data_recebido = document.getElementById('com-data-recebido').value;
+  const valor         = parseFloat(document.getElementById('com-valor').value) || 0;
+  const percentual    = parseFloat(document.getElementById('com-percentual').value) || 0;
+  const comissao      = parseFloat(document.getElementById('com-comissao').value) || 0;
+  const tipo          = document.getElementById('com-tipo').value;
+  const obs           = document.getElementById('com-obs').value.trim();
+
+  if (!nome || !data_recebido || comissao <= 0) {
+    alert('Preencha: nome do cliente, data de recebimento e valor da comissão.'); return;
+  }
+
+  const comId = Date.now();
+  const txId  = comId + 1;
+  const item  = { id: comId, txId, nome, data_fechamento, data_recebido, valor, percentual, comissao, tipo, obs };
+
+  // Salva no Firebase/localStorage como comissão
+  const coms = load('commissions');
+  coms.unshift(item);
+  save('commissions', coms);
+
+  // Espelha como receita em Lançamentos
+  const txs = load('transactions');
+  txs.unshift({
+    id: txId, type: 'receita', date: data_recebido,
+    desc: 'Comissão — ' + nome, valor: comissao, cat: 'Comissão',
+    conta: 'Nubank Empresas',
+    obs: [tipo, data_fechamento ? 'Fechamento: ' + fmtDate(data_fechamento) : '', obs].filter(Boolean).join(' · ')
+  });
+  save('transactions', txs);
+
+  // Grava na planilha
+  const sheetStatus = document.getElementById('com-sheet-status');
+  if (sheetStatus) sheetStatus.textContent = '⏳ Gravando na planilha...';
+  const wrote = await writeComissaoToSheet(item);
+  if (sheetStatus) sheetStatus.textContent = wrote
+    ? '✅ Gravado na planilha com sucesso!'
+    : '⚠️ Salvo no app, mas não foi possível gravar na planilha. Verifique o webhook.';
+
+  closeModal('modal-add-comissao');
+  ['com-nome','com-data-fechamento','com-valor','com-percentual','com-comissao','com-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('com-data-recebido').value = today();
+  document.getElementById('com-tipo').value = '';
+
+  _comSelectedMonth = monthKey(data_recebido);
+  renderComissoes();
+}
+
+async function writeComissaoToSheet(item) {
+  const webhookURL = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
+  if (!webhookURL) return false;
+  const [y, mo] = (item.data_recebido || '').split('-');
+  const aba = mo ? MONTHS_PT[parseInt(mo)-1] + ' ' + y : '';
+  const params = new URLSearchParams({
+    action: 'write',
+    aba,
+    nome: item.nome,
+    data_fechamento: item.data_fechamento || '',
+    data_recebido: item.data_recebido || '',
+    valor: item.valor || 0,
+    percentual: item.percentual || 0,
+    comissao: item.comissao || 0,
+    tipo: item.tipo || '',
+    obs: item.obs || '',
+    recebido: 'TRUE'
+  });
+  try {
+    const resp = await fetch(webhookURL + '?' + params.toString());
+    if (!resp.ok) return false;
+    const json = await resp.json();
+    return !!(json.success || json.written);
+  } catch(e) {
+    console.warn('[Comissão → Planilha]', e.message);
+    return false;
+  }
+}
+
+function deleteComissao(id) {
+  if (!confirm('Remover esta comissão? Ela também será removida dos Lançamentos.')) return;
+  id = Number(id);
+  const coms = load('commissions');
+  const item = coms.find(c => c.id === id);
+  save('commissions', coms.filter(c => c.id !== id));
+  if (item && item.txId) save('transactions', load('transactions').filter(t => t.id !== item.txId));
+  renderComissoes();
+}
+
+function salvarComWebhookURL() {
+  const url = document.getElementById('com-webhook-url').value.trim();
+  if (!url) { alert('Cole a URL do Apps Script primeiro.'); return; }
+  localStorage.setItem('fin_comissoes_webhook', url);
+  const other = document.getElementById('comissoes-webhook-url');
+  if (other) other.value = url;
+  const el = document.getElementById('com-sheet-status');
+  if (el) el.textContent = '✅ URL salva! Pronto para gravar na planilha.';
+}
+
+function carregarComWebhookURL() {
+  const saved = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
+  const el = document.getElementById('com-webhook-url');
+  if (el && !el.value) el.value = saved;
+}
+// ===== FIM COMISSÕES =====
+
 // Init
 document.getElementById('l-date').value=today();
 document.getElementById('cc-tx-date').value=today();
 document.getElementById('loan-inicio').value=today();
+document.getElementById('com-data-recebido').value=today();
 updateCategories();
 populateMonthFilter();
 renderDashboard();
@@ -1738,7 +2014,7 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<nav class="mobile-nav">
+<nav class="mobile-nav six-items">
   <button class="mob-nav-btn active" id="mob-dashboard" onclick="showScreen('dashboard',null)">
     <span class="nav-icon">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
@@ -1750,6 +2026,12 @@ if ('serviceWorker' in navigator) {
       <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/></svg>
     </span>
     <span class="nav-label">Lançamentos</span>
+  </button>
+  <button class="mob-nav-btn" id="mob-comissoes" onclick="showScreen('comissoes',null)">
+    <span class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+    </span>
+    <span class="nav-label">Comissões</span>
   </button>
   <button class="mob-nav-btn" id="mob-cartao" onclick="showScreen('cartao',null)">
     <span class="nav-icon">
