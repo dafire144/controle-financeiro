@@ -523,12 +523,6 @@
     </div>
 
     <div id="panel-comissoes" class="card" style="display:none">
-      <!-- Sub-abas -->
-      <div class="tabs-mini" style="margin-bottom:18px">
-        <button class="tab-mini active" id="tab-com-importar" onclick="switchComTab('importar')">📥 Importar</button>
-        <button class="tab-mini" id="tab-com-relatorio" onclick="switchComTab('relatorio')">📋 Relatório semanal</button>
-      </div>
-
       <!-- Painel: Importar -->
       <div id="panel-com-importar">
         <div class="notice">Busca automaticamente comissões com a caixinha <strong>Recebido</strong> marcada e <strong>Data de Recebimento</strong> preenchida na planilha de fechamentos.</div>
@@ -546,19 +540,6 @@
           <span id="comissoes-status" style="font-size:12px;color:var(--txt3)"></span>
         </div>
         <div id="comissoes-preview"></div>
-      </div>
-
-      <!-- Painel: Relatório semanal -->
-      <div id="panel-com-relatorio" style="display:none">
-        <div class="notice">Gera o texto de prestação de contas por semana. Selecione o tipo de cada venda antes de copiar.</div>
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="carregarRelatorioComissoes()">🔄 Carregar dados</button>
-          <select id="rel-semana" onchange="renderRelatorioSemana()" style="font-size:13px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt)">
-            <option value="">Selecione uma semana...</option>
-          </select>
-          <span id="relatorio-status" style="font-size:12px;color:var(--txt3)"></span>
-        </div>
-        <div id="relatorio-output"></div>
       </div>
     </div>
 
@@ -612,6 +593,11 @@
 
   <!-- COMISSÕES -->
   <div id="screen-comissoes" class="screen">
+    <div class="tabs-mini" style="margin-bottom:14px">
+      <button class="tab-mini active" id="tab-cv-etapas" onclick="switchComView('etapas')">📋 Etapas do mês</button>
+      <button class="tab-mini" id="tab-cv-relatorio" onclick="switchComView('relatorio')">🧾 Relatório semanal</button>
+    </div>
+    <div id="com-view-etapas">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;max-width:calc(100vw - 180px)">
         <div id="com-month-tabs" class="tabs-mini" style="flex-wrap:nowrap;min-width:max-content"></div>
@@ -653,6 +639,22 @@
         <button class="btn" onclick="salvarComWebhookURL()" style="white-space:nowrap;height:40px">💾 Salvar</button>
       </div>
       <div id="com-sheet-status" style="font-size:12px;color:var(--txt3);margin-top:6px;min-height:18px"></div>
+    </div>
+    </div><!-- /com-view-etapas -->
+
+    <div id="com-view-relatorio" style="display:none">
+      <div class="card">
+        <p class="section-title">Relatório semanal de comissões</p>
+        <div class="notice">Gera o texto de prestação de contas por semana. Selecione o tipo de cada venda antes de copiar.</div>
+        <div style="display:flex;gap:10px;align-items:center;margin:12px 0 14px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="carregarRelatorioComissoes()">🔄 Carregar dados</button>
+          <select id="rel-semana" onchange="renderRelatorioSemana()" style="font-size:13px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);color:var(--txt)">
+            <option value="">Selecione uma semana...</option>
+          </select>
+          <span id="relatorio-status" style="font-size:12px;color:var(--txt3)"></span>
+        </div>
+        <div id="relatorio-output"></div>
+      </div>
     </div>
   </div>
 
@@ -1872,6 +1874,18 @@ function renderComissoes() {
   else { renderComMonthTabs(); carregarComLinhas(); }
 }
 
+function switchComView(v) {
+  const etapas = document.getElementById('com-view-etapas');
+  const rel = document.getElementById('com-view-relatorio');
+  if (etapas) etapas.style.display = v === 'etapas' ? 'block' : 'none';
+  if (rel) rel.style.display = v === 'relatorio' ? 'block' : 'none';
+  const tE = document.getElementById('tab-cv-etapas');
+  const tR = document.getElementById('tab-cv-relatorio');
+  if (tE) tE.className = 'tab-mini' + (v === 'etapas' ? ' active' : '');
+  if (tR) tR.className = 'tab-mini' + (v === 'relatorio' ? ' active' : '');
+  if (v === 'relatorio' && !_relatorioData.length) carregarRelatorioComissoes();
+}
+
 async function carregarComMeses() {
   setComStatus('Carregando meses da planilha...');
   try {
@@ -1930,8 +1944,8 @@ function renderComMetrics() {
   const filled = v => { v = String(v == null ? '' : v).trim(); return v && v !== '-'; };
   // Recebido no mês: Recebido marcado + Data de recebimento preenchida
   const recebido  = _comRows.filter(c => c.recebido && filled(c.data_recebido)).reduce((s,c) => s + (c.comissao||0), 0);
-  // A receber: Fechado + Pago marcados
-  const aReceber  = _comRows.filter(c => c.fechado && c.pago).reduce((s,c) => s + (c.comissao||0), 0);
+  // A receber: Fechado marcado e Pago NÃO marcado (ainda não pago)
+  const aReceber  = _comRows.filter(c => c.fechado && !c.pago).reduce((s,c) => s + (c.comissao||0), 0);
   // Porquinho: Pago marcado e Recebido NÃO marcado
   const porquinho = _comRows.filter(c => c.pago && !c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
   // Comissão na mesa: Fechado marcado, sem Pago e sem Assinado
