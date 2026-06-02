@@ -3,7 +3,7 @@
  * Estratégia: Cache-first para assets estáticos, Network-first para dados remotos.
  */
 
-const CACHE_NAME = 'controle-fin-v10';
+const CACHE_NAME = 'controle-fin-v11';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
