@@ -642,7 +642,7 @@
       <div id="com-empty" class="empty" style="display:none">Nenhuma comissão neste mês.<br><small>Clique em "+ Nova comissão" para adicionar.</small></div>
       <div id="com-status" style="font-size:12px;color:var(--txt3);margin-top:8px;min-height:16px"></div>
     </div>
-    <div class="card" style="margin-top:14px">
+    <div class="card" style="margin-top:14px;display:none">
       <p class="section-title">Configuração — Google Sheets</p>
       <div class="notice">Webhook do Apps Script já vem <strong>pré-preenchido</strong>. Só mexa aqui se trocar de planilha ou gerar uma nova implantação.</div>
       <div class="form-row" style="align-items:flex-end;margin-top:10px">
@@ -1927,15 +1927,21 @@ async function carregarComLinhas() {
 }
 
 function renderComMetrics() {
-  const rec = _comRows.filter(c => c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
-  const aReceber = _comRows.filter(c => !c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
-  const total = _comRows.reduce((s,c) => s + (c.comissao||0), 0);
+  const filled = v => { v = String(v == null ? '' : v).trim(); return v && v !== '-'; };
+  // Recebido no mês: Recebido marcado + Data de recebimento preenchida
+  const recebido  = _comRows.filter(c => c.recebido && filled(c.data_recebido)).reduce((s,c) => s + (c.comissao||0), 0);
+  // A receber: Fechado + Pago marcados
+  const aReceber  = _comRows.filter(c => c.fechado && c.pago).reduce((s,c) => s + (c.comissao||0), 0);
+  // Porquinho: Pago marcado e Recebido NÃO marcado
+  const porquinho = _comRows.filter(c => c.pago && !c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
+  // Comissão na mesa: Fechado marcado, sem Pago e sem Assinado
+  const naMesa    = _comRows.filter(c => c.fechado && !c.pago && !c.assinado).reduce((s,c) => s + (c.comissao||0), 0);
   const el = document.getElementById('com-metrics');
   if (el) el.innerHTML = `
-    <div class="metric pos"><div class="metric-label">Recebido no mês</div><div class="metric-val pos">${fmtBRL(rec)}</div></div>
-    <div class="metric warn"><div class="metric-label">A receber</div><div class="metric-val warn">${fmtBRL(aReceber)}</div></div>
-    <div class="metric neu"><div class="metric-label">Total comissão</div><div class="metric-val neu">${fmtBRL(total)}</div></div>
-    <div class="metric"><div class="metric-label">Comissões</div><div class="metric-val" style="font-size:26px">${_comRows.length}</div></div>`;
+    <div class="metric pos"><div class="metric-label">Recebido no mês</div><div class="metric-val pos">${fmtBRL(recebido)}</div></div>
+    <div class="metric neu"><div class="metric-label">A receber</div><div class="metric-val neu">${fmtBRL(aReceber)}</div></div>
+    <div class="metric warn"><div class="metric-label">🐷 Porquinho</div><div class="metric-val warn">${fmtBRL(porquinho)}</div></div>
+    <div class="metric"><div class="metric-label">Comissão na mesa</div><div class="metric-val" style="color:var(--purple-accent)">${fmtBRL(naMesa)}</div></div>`;
 }
 
 function renderComStageList() {
