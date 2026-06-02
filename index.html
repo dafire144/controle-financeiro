@@ -200,6 +200,27 @@
   .mobile-nav.six-items .mob-nav-btn .nav-icon svg { width: 18px; height: 18px; }
   .mobile-nav.six-items .mob-nav-btn .nav-label { font-size: 8px; }
 
+  /* ── STAGE CHIPS (comissões) ── */
+  .stage-chip {
+    width: 32px; height: 32px; border-radius: 9px;
+    border: 1.5px solid var(--border2); background: var(--surface2);
+    color: var(--txt3); cursor: pointer; font-size: 15px; font-weight: 800;
+    line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .stage-chip.on {
+    background: var(--green-bg); border-color: var(--green-accent);
+    color: var(--green-accent); box-shadow: 0 0 0 2px rgba(0,230,118,0.12);
+  }
+  .stage-chip:active { transform: scale(0.9); }
+  .com-data-input {
+    width: 100px; font-size: 12px; padding: 6px 8px;
+    border: 1.5px solid var(--border2); border-radius: 8px;
+    background: var(--surface2); color: var(--txt); font-family: inherit;
+    -webkit-appearance: none; appearance: none;
+  }
+  .com-data-input:focus { outline: none; border-color: var(--accent); }
+
   /* ── SCREEN ── */
   .screen { display: none; }
   .screen.active { display: block; }
@@ -599,27 +620,37 @@
     </div>
     <div class="cards-row" id="com-metrics"></div>
     <div class="card">
-      <div class="flex-between" style="margin-bottom:12px">
-        <p class="section-title" style="margin:0">Comissões do mês</p>
-        <span id="com-count" style="font-size:12px;color:var(--txt3)"></span>
+      <div class="flex-between" style="margin-bottom:10px">
+        <p class="section-title" style="margin:0">Etapas — <span id="com-aba-label">mês</span></p>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span id="com-count" style="font-size:12px;color:var(--txt3)"></span>
+          <button class="btn btn-sm" onclick="carregarComLinhas()" title="Recarregar da planilha">🔄</button>
+        </div>
       </div>
+      <div class="notice" style="font-size:12px">Toque nas etapas para marcar/desmarcar — grava direto na planilha. Colunas: <strong>Fechado · Assinado · Pago · Recebido · Data recebido</strong>.</div>
       <div class="table-wrap">
-        <table style="min-width:560px">
-          <thead><tr><th>Fechamento</th><th>Recebido</th><th>Cliente</th><th>Venda</th><th>%</th><th>Comissão</th><th>Tipo</th><th></th></tr></thead>
+        <table style="min-width:760px">
+          <thead><tr>
+            <th>Cliente</th><th>Comissão</th><th>Venda</th>
+            <th style="text-align:center">Fechado</th><th style="text-align:center">Assinado</th>
+            <th style="text-align:center">Pago</th><th style="text-align:center">Recebido</th>
+            <th>Data rec.</th><th>Obs</th>
+          </tr></thead>
           <tbody id="com-body"></tbody>
         </table>
       </div>
       <div id="com-empty" class="empty" style="display:none">Nenhuma comissão neste mês.<br><small>Clique em "+ Nova comissão" para adicionar.</small></div>
+      <div id="com-status" style="font-size:12px;color:var(--txt3);margin-top:8px;min-height:16px"></div>
     </div>
     <div class="card" style="margin-top:14px">
       <p class="section-title">Configuração — Google Sheets</p>
-      <div class="notice">Ao salvar uma comissão, o app tenta gravá-la na aba do mês correto da planilha (ex: <strong>Jun 2026</strong>) via Apps Script. Seu script precisa aceitar <code style="background:var(--surface3);padding:1px 5px;border-radius:4px">?action=write</code> com os campos da comissão.</div>
+      <div class="notice">Webhook do Apps Script já vem <strong>pré-preenchido</strong>. Só mexa aqui se trocar de planilha ou gerar uma nova implantação.</div>
       <div class="form-row" style="align-items:flex-end;margin-top:10px">
         <div class="form-group" style="flex:1">
           <label>URL do Apps Script (webhook)</label>
           <input type="text" id="com-webhook-url" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
         </div>
-        <button class="btn" onclick="salvarComWebhookURL()" style="white-space:nowrap;height:40px">💾 Salvar URL</button>
+        <button class="btn" onclick="salvarComWebhookURL()" style="white-space:nowrap;height:40px">💾 Salvar</button>
       </div>
       <div id="com-sheet-status" style="font-size:12px;color:var(--txt3);margin-top:6px;min-height:18px"></div>
     </div>
@@ -723,29 +754,15 @@
 <div class="modal-overlay" id="modal-add-comissao">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><span class="modal-title">📊 Nova comissão</span><button class="close-btn" onclick="closeModal('modal-add-comissao')">×</button></div>
+    <div class="notice" style="font-size:12px;margin-bottom:14px">Adiciona uma linha na aba <strong id="com-modal-aba">do mês selecionado</strong> da planilha.</div>
     <div class="form-row">
       <div class="form-group" style="flex:2">
         <label>Cliente / SaaS ★</label>
         <input type="text" id="com-nome" placeholder="Ex: Empresa XYZ">
       </div>
       <div class="form-group">
-        <label>Tipo</label>
-        <select id="com-tipo">
-          <option value="">Selecione...</option>
-          <option value="MVP">MVP</option>
-          <option value="TCV">TCV</option>
-          <option value="MRR">MRR</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Data de fechamento</label>
-        <input type="date" id="com-data-fechamento">
-      </div>
-      <div class="form-group">
-        <label>Data de recebimento ★</label>
-        <input type="date" id="com-data-recebido">
+        <label>Data fechamento</label>
+        <input type="text" id="com-data-fechamento" placeholder="02/06">
       </div>
     </div>
     <div class="form-row">
@@ -757,19 +774,32 @@
         <label>% Comissão</label>
         <input type="number" id="com-percentual" placeholder="Ex: 5" step="0.01" min="0" oninput="calcComissaoAuto()">
       </div>
+      <div class="form-group">
+        <label>Comissão (R$)</label>
+        <input type="number" id="com-comissao" placeholder="Auto" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Etapas</label>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 0">
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-fechado" style="width:18px;height:18px;accent-color:#00e676">Fechado</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-assinado" style="width:18px;height:18px;accent-color:#00e676">Assinado</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-pago" style="width:18px;height:18px;accent-color:#00e676">Pago</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt)"><input type="checkbox" id="com-st-recebido" style="width:18px;height:18px;accent-color:#00e676">Recebido</label>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Valor da comissão (R$) ★</label>
-        <input type="number" id="com-comissao" placeholder="Auto ou manual" step="0.01" min="0">
+        <label>Data recebido</label>
+        <input type="text" id="com-data-recebido" placeholder="-">
       </div>
       <div class="form-group">
         <label>Observação</label>
         <input type="text" id="com-obs" placeholder="Notas adicionais...">
       </div>
     </div>
-    <p style="font-size:11px;color:var(--txt3);margin-bottom:14px">★ Obrigatórios. O mês do <strong>recebimento</strong> define a aba da planilha. A comissão também é salva como receita em Lançamentos.</p>
-    <button class="btn btn-primary" onclick="addComissao()" style="width:100%;padding:12px">✅ Salvar comissão</button>
+    <p style="font-size:11px;color:var(--txt3);margin-bottom:14px">★ Obrigatório. Datas em formato livre (ex: <strong>02/06</strong>), igual à planilha.</p>
+    <button class="btn btn-primary" onclick="addComissao()" style="width:100%;padding:12px">✅ Salvar na planilha</button>
   </div>
 </div>
 
@@ -1815,69 +1845,158 @@ async function gdriveLoad() {
 
 // ===== END GOOGLE DRIVE =====
 
-// ===== COMISSÕES (ABA SEPARADA) =====
-let _comSelectedMonth = '';
+// ===== COMISSÕES (ABA SEPARADA · sincronizada com a planilha) =====
+let _comMeses = [];
+let _comAba   = '';
+let _comRows  = [];
 
-function renderComissoes() {
-  const coms = load('commissions');
-  const now = new Date();
-  const curMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const months = [...new Set([curMonth, ...coms.map(c => monthKey(c.data_recebido || c.data_fechamento)).filter(Boolean)])].sort().reverse();
-  if (!_comSelectedMonth || !months.includes(_comSelectedMonth)) _comSelectedMonth = months[0] || curMonth;
-  renderComMonthTabs(months);
-  renderComMetrics(coms);
-  renderComList(coms);
-  carregarComWebhookURL();
+function getComWebhook() {
+  return localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
 }
 
-function renderComMonthTabs(months) {
+function setComStatus(msg) {
+  const el = document.getElementById('com-status');
+  if (el) el.textContent = msg || '';
+}
+
+function setComAbaLabels() {
+  const a = document.getElementById('com-aba-label');
+  if (a) a.textContent = _comAba || 'mês';
+  const m = document.getElementById('com-modal-aba');
+  if (m) m.textContent = _comAba || 'do mês selecionado';
+}
+
+function renderComissoes() {
+  carregarComWebhookURL();
+  if (!_comMeses.length) carregarComMeses();
+  else { renderComMonthTabs(); carregarComLinhas(); }
+}
+
+async function carregarComMeses() {
+  setComStatus('Carregando meses da planilha...');
+  try {
+    const r = await fetch(getComWebhook() + '?action=months');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Resposta inválida');
+    _comMeses = j.meses || [];
+    if (!_comMeses.length) { setComStatus('⚠️ Nenhuma aba retornada. Publique o Apps Script novo (com as ações months/list/update) para ver e editar as etapas.'); return; }
+    if (!_comAba || !_comMeses.includes(_comAba)) _comAba = _comMeses[_comMeses.length - 1]; // última = mês atual
+    renderComMonthTabs();
+    await carregarComLinhas();
+  } catch(e) {
+    setComStatus('⚠️ Erro ao carregar meses: ' + e.message + ' — confira o webhook (precisa do Apps Script novo publicado).');
+  }
+}
+
+function renderComMonthTabs() {
   const el = document.getElementById('com-month-tabs');
   if (!el) return;
-  el.innerHTML = months.map(m => {
-    const [y, mo] = m.split('-');
-    return `<button class="tab-mini${m === _comSelectedMonth ? ' active' : ''}" onclick="selectComMonth('${m}')">${MONTHS_PT[parseInt(mo)-1]}/${y}</button>`;
+  el.innerHTML = _comMeses.map(m => {
+    const safe = m.replace(/'/g, "\\'");
+    return `<button class="tab-mini${m === _comAba ? ' active' : ''}" onclick="selectComMonth('${safe}')">${m}</button>`;
   }).join('');
+  setComAbaLabels();
 }
 
 function selectComMonth(m) {
-  _comSelectedMonth = m;
-  const coms = load('commissions');
-  renderComMonthTabs([...new Set([m, ...coms.map(c => monthKey(c.data_recebido || c.data_fechamento)).filter(Boolean)])].sort().reverse());
-  renderComMetrics(coms);
-  renderComList(coms);
+  _comAba = m;
+  renderComMonthTabs();
+  carregarComLinhas();
 }
 
-function renderComMetrics(coms) {
-  const f = coms.filter(c => monthKey(c.data_recebido || c.data_fechamento) === _comSelectedMonth);
-  const totalCom   = f.reduce((s,c) => s + (c.comissao || 0), 0);
-  const totalVenda = f.reduce((s,c) => s + (c.valor || 0), 0);
-  const totalGeral = coms.reduce((s,c) => s + (c.comissao || 0), 0);
-  document.getElementById('com-metrics').innerHTML = `
-    <div class="metric pos"><div class="metric-label">Comissões no mês</div><div class="metric-val pos">${fmtBRL(totalCom)}</div></div>
-    <div class="metric neu"><div class="metric-label">Volume de vendas</div><div class="metric-val neu">${fmtBRL(totalVenda)}</div></div>
-    <div class="metric warn"><div class="metric-label">Qtde no mês</div><div class="metric-val warn" style="font-size:26px">${f.length}</div></div>
-    <div class="metric pos"><div class="metric-label">Total acumulado</div><div class="metric-val pos">${fmtBRL(totalGeral)}</div></div>`;
+async function carregarComLinhas() {
+  if (!_comAba) return;
+  setComAbaLabels();
+  setComStatus('Carregando ' + _comAba + '...');
+  const tbody = document.getElementById('com-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty" style="padding:24px">⏳ Carregando...</td></tr>';
+  try {
+    const r = await fetch(getComWebhook() + '?action=list&aba=' + encodeURIComponent(_comAba));
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Resposta inválida');
+    _comRows = j.comissoes || [];
+    renderComMetrics();
+    renderComStageList();
+    setComStatus(_comRows.length + ' comissão(ões) · ' + _comAba);
+  } catch(e) {
+    _comRows = [];
+    renderComMetrics();
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty" style="padding:24px">⚠️ Erro ao carregar. Verifique o webhook.</td></tr>';
+    setComStatus('⚠️ ' + e.message);
+  }
 }
 
-function renderComList(coms) {
-  const f = coms.filter(c => monthKey(c.data_recebido || c.data_fechamento) === _comSelectedMonth);
+function renderComMetrics() {
+  const rec = _comRows.filter(c => c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
+  const aReceber = _comRows.filter(c => !c.recebido).reduce((s,c) => s + (c.comissao||0), 0);
+  const total = _comRows.reduce((s,c) => s + (c.comissao||0), 0);
+  const el = document.getElementById('com-metrics');
+  if (el) el.innerHTML = `
+    <div class="metric pos"><div class="metric-label">Recebido no mês</div><div class="metric-val pos">${fmtBRL(rec)}</div></div>
+    <div class="metric warn"><div class="metric-label">A receber</div><div class="metric-val warn">${fmtBRL(aReceber)}</div></div>
+    <div class="metric neu"><div class="metric-label">Total comissão</div><div class="metric-val neu">${fmtBRL(total)}</div></div>
+    <div class="metric"><div class="metric-label">Comissões</div><div class="metric-val" style="font-size:26px">${_comRows.length}</div></div>`;
+}
+
+function renderComStageList() {
   const tbody = document.getElementById('com-body');
   const empty = document.getElementById('com-empty');
   const countEl = document.getElementById('com-count');
-  if (countEl) countEl.textContent = f.length + ' registro' + (f.length !== 1 ? 's' : '');
-  if (!f.length) { if (tbody) tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (countEl) countEl.textContent = _comRows.length + ' registro' + (_comRows.length !== 1 ? 's' : '');
+  if (!_comRows.length) { if (tbody) tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
   if (empty) empty.style.display = 'none';
-  const tipoBadge = t => ({ MVP:'badge-blue', TCV:'badge-purple', MRR:'badge-green' }[t] || 'badge-amber');
-  tbody.innerHTML = f.map(c => `<tr>
-    <td style="white-space:nowrap">${fmtDate(c.data_fechamento) || '—'}</td>
-    <td style="white-space:nowrap">${fmtDate(c.data_recebido) || '—'}</td>
-    <td style="font-weight:500">${c.nome}</td>
-    <td style="color:var(--txt2)">${c.valor > 0 ? fmtBRL(c.valor) : '—'}</td>
-    <td style="color:var(--txt2)">${c.percentual > 0 ? c.percentual + '%' : '—'}</td>
-    <td style="font-weight:700;color:var(--green)">+${fmtBRL(c.comissao)}</td>
-    <td>${c.tipo ? `<span class="badge ${tipoBadge(c.tipo)}">${c.tipo}</span>` : '—'}</td>
-    <td><button class="btn btn-sm btn-danger" onclick="deleteComissao(${c.id})">Remover</button></td>
-  </tr>`).join('');
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  tbody.innerHTML = _comRows.map(c => {
+    const chip = field => `<button class="stage-chip ${c[field] ? 'on' : ''}" onclick="toggleComStage(${c.row},'${field}')" title="${field}">${c[field] ? '✓' : '○'}</button>`;
+    const pct = c.percentual ? ` <span style="color:var(--txt3);font-size:11px">${c.percentual % 1 === 0 ? c.percentual : c.percentual.toFixed(1)}%</span>` : '';
+    return `<tr>
+      <td style="font-weight:500;white-space:nowrap">${esc(c.nome)}</td>
+      <td style="font-weight:700;color:var(--green);white-space:nowrap">${c.comissao > 0 ? fmtBRL(c.comissao) : '—'}</td>
+      <td style="color:var(--txt2);white-space:nowrap">${c.valor > 0 ? fmtBRL(c.valor) : '—'}${pct}</td>
+      <td style="text-align:center">${chip('fechado')}</td>
+      <td style="text-align:center">${chip('assinado')}</td>
+      <td style="text-align:center">${chip('pago')}</td>
+      <td style="text-align:center">${chip('recebido')}</td>
+      <td><input class="com-data-input" value="${esc(c.data_recebido)}" onchange="setComDataRecebido(${c.row}, this.value)" placeholder="-"></td>
+      <td style="color:var(--txt3);font-size:12px;max-width:180px">${esc(c.obs)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function comUpdate(row, field, value) {
+  const p = new URLSearchParams({ action: 'update', aba: _comAba, row: row, field: field, value: value });
+  try {
+    const r = await fetch(getComWebhook() + '?' + p.toString());
+    const j = await r.json();
+    return !!j.success;
+  } catch(e) { return false; }
+}
+
+async function toggleComStage(row, field) {
+  const item = _comRows.find(c => c.row === row);
+  if (!item) return;
+  const novo = !item[field];
+  item[field] = novo;                 // otimista
+  renderComStageList(); renderComMetrics();
+  setComStatus('⏳ Atualizando ' + item.nome + '...');
+  const ok = await comUpdate(row, field, novo ? 'TRUE' : 'FALSE');
+  if (!ok) {
+    item[field] = !novo;              // reverte
+    renderComStageList(); renderComMetrics();
+    setComStatus('⚠️ Não foi possível atualizar na planilha.');
+    alert('Falha ao gravar na planilha. Verifique a implantação do Apps Script.');
+  } else {
+    setComStatus('✓ ' + item.nome + ' — ' + field + (novo ? ' marcado' : ' desmarcado'));
+  }
+}
+
+async function setComDataRecebido(row, value) {
+  const item = _comRows.find(c => c.row === row);
+  if (!item) return;
+  setComStatus('⏳ Atualizando data...');
+  const ok = await comUpdate(row, 'data_recebido', value);
+  if (ok) { item.data_recebido = value; setComStatus('✓ ' + item.nome + ' — data recebido atualizada'); }
+  else { setComStatus('⚠️ Falha ao atualizar a data.'); alert('Falha ao gravar a data na planilha.'); }
 }
 
 function calcComissaoAuto() {
@@ -1887,92 +2006,45 @@ function calcComissaoAuto() {
 }
 
 async function addComissao() {
-  const nome          = document.getElementById('com-nome').value.trim();
-  const data_fechamento = document.getElementById('com-data-fechamento').value;
-  const data_recebido = document.getElementById('com-data-recebido').value;
-  const valor         = parseFloat(document.getElementById('com-valor').value) || 0;
-  const percentual    = parseFloat(document.getElementById('com-percentual').value) || 0;
-  const comissao      = parseFloat(document.getElementById('com-comissao').value) || 0;
-  const tipo          = document.getElementById('com-tipo').value;
-  const obs           = document.getElementById('com-obs').value.trim();
-
-  if (!nome || !data_recebido || comissao <= 0) {
-    alert('Preencha: nome do cliente, data de recebimento e valor da comissão.'); return;
-  }
-
-  const comId = Date.now();
-  const txId  = comId + 1;
-  const item  = { id: comId, txId, nome, data_fechamento, data_recebido, valor, percentual, comissao, tipo, obs };
-
-  // Salva no Firebase/localStorage como comissão
-  const coms = load('commissions');
-  coms.unshift(item);
-  save('commissions', coms);
-
-  // Espelha como receita em Lançamentos
-  const txs = load('transactions');
-  txs.unshift({
-    id: txId, type: 'receita', date: data_recebido,
-    desc: 'Comissão — ' + nome, valor: comissao, cat: 'Comissão',
-    conta: 'Nubank Empresas',
-    obs: [tipo, data_fechamento ? 'Fechamento: ' + fmtDate(data_fechamento) : '', obs].filter(Boolean).join(' · ')
-  });
-  save('transactions', txs);
-
-  // Grava na planilha
-  const sheetStatus = document.getElementById('com-sheet-status');
-  if (sheetStatus) sheetStatus.textContent = '⏳ Gravando na planilha...';
-  const wrote = await writeComissaoToSheet(item);
-  if (sheetStatus) sheetStatus.textContent = wrote
-    ? '✅ Gravado na planilha com sucesso!'
-    : '⚠️ Salvo no app, mas não foi possível gravar na planilha. Verifique o webhook.';
-
-  closeModal('modal-add-comissao');
-  ['com-nome','com-data-fechamento','com-valor','com-percentual','com-comissao','com-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('com-data-recebido').value = today();
-  document.getElementById('com-tipo').value = '';
-
-  _comSelectedMonth = monthKey(data_recebido);
-  renderComissoes();
-}
-
-async function writeComissaoToSheet(item) {
-  const webhookURL = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
-  if (!webhookURL) return false;
-  const [y, mo] = (item.data_recebido || '').split('-');
-  const aba = mo ? MONTHS_PT[parseInt(mo)-1] + ' ' + y : '';
+  if (!_comAba) { alert('Selecione um mês primeiro.'); return; }
+  const gv = id => (document.getElementById(id) || {}).value || '';
+  const ck = id => !!(document.getElementById(id) || {}).checked;
+  const nome = gv('com-nome').trim();
+  if (!nome) { alert('Informe o nome do cliente.'); return; }
   const params = new URLSearchParams({
     action: 'write',
-    aba,
-    nome: item.nome,
-    data_fechamento: item.data_fechamento || '',
-    data_recebido: item.data_recebido || '',
-    valor: item.valor || 0,
-    percentual: item.percentual || 0,
-    comissao: item.comissao || 0,
-    tipo: item.tipo || '',
-    obs: item.obs || '',
-    recebido: 'TRUE'
+    aba: _comAba,
+    nome: nome,
+    data_fechamento: gv('com-data-fechamento').trim(),
+    valor: parseFloat(gv('com-valor')) || '',
+    percentual: parseFloat(gv('com-percentual')) || '',
+    comissao: parseFloat(gv('com-comissao')) || '',
+    fechado:  ck('com-st-fechado')  ? 'TRUE' : 'FALSE',
+    assinado: ck('com-st-assinado') ? 'TRUE' : 'FALSE',
+    pago:     ck('com-st-pago')     ? 'TRUE' : 'FALSE',
+    recebido: ck('com-st-recebido') ? 'TRUE' : 'FALSE',
+    data_recebido: gv('com-data-recebido').trim(),
+    obs: gv('com-obs').trim()
   });
+  setComStatus('⏳ Gravando ' + nome + ' na planilha...');
+  let ok = false;
   try {
-    const resp = await fetch(webhookURL + '?' + params.toString());
-    if (!resp.ok) return false;
-    const json = await resp.json();
-    return !!(json.success || json.written);
-  } catch(e) {
-    console.warn('[Comissão → Planilha]', e.message);
-    return false;
+    const r = await fetch(getComWebhook() + '?' + params.toString());
+    const j = await r.json();
+    ok = !!j.success;
+  } catch(e) {}
+  if (ok) {
+    closeModal('modal-add-comissao');
+    ['com-nome','com-data-fechamento','com-valor','com-percentual','com-comissao','com-data-recebido','com-obs']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['com-st-fechado','com-st-assinado','com-st-pago','com-st-recebido']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+    await carregarComLinhas();
+    setComStatus('✅ ' + nome + ' adicionada em ' + _comAba);
+  } else {
+    setComStatus('⚠️ Falha ao gravar na planilha.');
+    alert('Não foi possível gravar na planilha. Verifique o webhook e a implantação do Apps Script.');
   }
-}
-
-function deleteComissao(id) {
-  if (!confirm('Remover esta comissão? Ela também será removida dos Lançamentos.')) return;
-  id = Number(id);
-  const coms = load('commissions');
-  const item = coms.find(c => c.id === id);
-  save('commissions', coms.filter(c => c.id !== id));
-  if (item && item.txId) save('transactions', load('transactions').filter(t => t.id !== item.txId));
-  renderComissoes();
 }
 
 function salvarComWebhookURL() {
@@ -1982,11 +2054,16 @@ function salvarComWebhookURL() {
   const other = document.getElementById('comissoes-webhook-url');
   if (other) other.value = url;
   const el = document.getElementById('com-sheet-status');
-  if (el) el.textContent = '✅ URL salva! Pronto para gravar na planilha.';
+  if (el) el.textContent = '✅ URL salva!';
+  _comMeses = [];
+  carregarComMeses();
 }
 
 function carregarComWebhookURL() {
-  const saved = localStorage.getItem('fin_comissoes_webhook') || COMISSOES_WEBHOOK_DEFAULT;
+  if (!localStorage.getItem('fin_comissoes_webhook')) {
+    localStorage.setItem('fin_comissoes_webhook', COMISSOES_WEBHOOK_DEFAULT);
+  }
+  const saved = getComWebhook();
   const el = document.getElementById('com-webhook-url');
   if (el && !el.value) el.value = saved;
 }
@@ -1996,11 +2073,11 @@ function carregarComWebhookURL() {
 document.getElementById('l-date').value=today();
 document.getElementById('cc-tx-date').value=today();
 document.getElementById('loan-inicio').value=today();
-document.getElementById('com-data-recebido').value=today();
 updateCategories();
 populateMonthFilter();
 renderDashboard();
 carregarWebhookURL();
+carregarComWebhookURL();
 </script>
 
 <!-- PWA: Service Worker registration -->
